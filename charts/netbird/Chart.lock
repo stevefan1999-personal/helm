@@ -4,15 +4,15 @@ dependencies:
   version: 0.24.0
 - name: dashboard
   repository: file://charts/dashboard
-  version: 0.1.0
+  version: 0.1.1
 - name: management
   repository: file://charts/management
-  version: 0.1.0
+  version: 0.1.1
 - name: signal
   repository: file://charts/signal
-  version: 0.1.0
+  version: 0.1.1
 - name: relay
   repository: file://charts/relay
-  version: 0.1.0
-digest: sha256:0c23dcf85b27418aa048b8497984abc0380d336ee9729021d5baba26d54076f7
-generated: "2025-07-08T15:16:08.011099342+08:00"
+  version: 0.1.1
+digest: sha256:edf040591cc03f2e09af6a5844d11a65d81cc7f9ca541e411ef95f34842985c7
+generated: "2025-07-09T10:36:35.454275733+08:00"
