@@ -1,14 +1,15 @@
 dependencies:
-- name: cloudnative-pg
-  repository: https://cloudnative-pg.github.io/charts
-  version: 0.24.0
 - name: dashboard
+  repository: ""
   version: 0.1.1
 - name: management
+  repository: ""
   version: 0.1.1
 - name: signal
+  repository: ""
   version: 0.1.1
 - name: relay
+  repository: ""
   version: 0.1.1
-digest: sha256:e9179b3312ceeebc76993c6b43725e6b866c3c1154e3af5abc7eaca4450ce3cc
-generated: "2025-07-09T10:58:59.889793874+08:00"
+digest: sha256:16adfea8c03062c3ae9bc7e1ab05860b470e39ed79af9c90e9dd1f77c7ad96b1
+generated: "2025-07-09T17:11:18.493397942+08:00"

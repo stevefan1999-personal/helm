@@ -157,7 +157,7 @@ global:
     # External PostgreSQL database configuration.
     external:
       # Enables or disables the use of an external PostgreSQL database.
-      enabled: true
+      enabled: false
       # Hostname of the external PostgreSQL database.
       host: "postgres.example.com"
       # Port of the external PostgreSQL database.
@@ -172,7 +172,7 @@ global:
     # Cloud Native PostgreSQL (CNPG) configuration. Used if external.enabled is false.
     cnpg:
       # Enables or disables the deployment of CNPG.
-      enabled: false
+      enabled: true
       # Number of CNPG instances.
       instances: 1
       # Resource requests and limits for CNPG pods.

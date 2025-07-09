@@ -1,0 +1,38 @@
+name: Test Charts
+
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v4.3.0
+
+    - name: Lint Chart
+      run: helm lint charts/netbird
+
+    - name: Set up kind
+      uses: helm/kind-action@v1
+
+    - name: Install CNPG
+      run: |
+        kubectl apply --server-side -f \
+          https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.26/releases/cnpg-1.26.0.yaml
+        kubectl wait -n cnpg-system --for=condition=Ready --all pod --timeout=300s
+
+    - name: Deploy Chart
+      run: |
+        helm install netbird charts/netbird --timeout 300s
+
+    - name: Show pods
+      run: |
+        kubectl get pods 
