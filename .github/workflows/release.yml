@@ -36,10 +36,3 @@ jobs:
         config: .cr.yaml
       env:
         CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-
-    - name: Publish Helm chart
-      uses: stefanprodan/helm-gh-pages@v1.6.0
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        charts_dir: charts
-        charts_url: https://stevefan1999-personal.github.io/helm
