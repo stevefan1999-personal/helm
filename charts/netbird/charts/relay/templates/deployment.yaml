@@ -1,0 +1,43 @@
+{{- if .Values.enabled }}
+# Relay Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "relay.fullname" . }}
+  labels:
+    {{- include "relay.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "relay.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "relay.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: relay
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: TZ
+              value: {{ $.Values.global.timezone | quote }}
+          envFrom:
+            # Non-sensitive configuration from ConfigMap
+            - configMapRef:
+                name: {{ include "relay.fullname" . }}-config
+            # Sensitive configuration from Secret
+            - secretRef:
+                name: {{ include "relay.fullname" . }}-secrets
+          ports:
+            - name: relay
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts: []
+      volumes: []
+{{- end }}

@@ -1,0 +1,47 @@
+{{- if and (not .Values.global.postgresql.external.enabled) .Values.global.postgresql.cnpg.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Release.Name }}-postgresql
+spec:
+  instances: {{ .Values.global.postgresql.cnpg.instances }}
+  primaryUpdateStrategy: unsupervised
+  
+  # PostgreSQL configuration
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+  
+  # Resources configuration
+  resources:
+    requests:
+      cpu: {{ .Values.global.postgresql.cnpg.resources.requests.cpu }}
+      memory: {{ .Values.global.postgresql.cnpg.resources.requests.memory }}
+    limits:
+      cpu: {{ .Values.global.postgresql.cnpg.resources.limits.cpu }}
+      memory: {{ .Values.global.postgresql.cnpg.resources.limits.memory }}
+  
+  # Storage configuration
+  storage:
+    size: {{ .Values.global.postgresql.cnpg.storage.size }}
+    {{- if .Values.global.postgresql.cnpg.storage.storageClass }}
+    storageClass: {{ .Values.global.postgresql.cnpg.storage.storageClass }}
+    {{- end }}
+  
+  # Backup configuration
+  {{- if .Values.global.postgresql.cnpg.backup.enabled }}
+  backup:
+    barmanObjectStore:
+      destinationPath: "s3://backups/"
+      endpointURL: "http://minio:9000"
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Release.Name }}-postgresql-backup-creds
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: {{ .Release.Name }}-postgresql-backup-creds
+          key: ACCESS_SECRET_KEY
+    schedule: {{ .Values.global.postgresql.cnpg.backup.schedule | quote }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,30 @@
+# Dashboard configuration
+enabled: true
+replicas: 1
+
+image:
+  repository: "netbirdio/dashboard"
+  tag: "v2.14.0"
+  pullPolicy: IfNotPresent
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 3000
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  tls:
+    secretName: "netbird-tls"

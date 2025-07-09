@@ -1,0 +1,18 @@
+{{- if .Values.enabled }}
+# Signal Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "signal.fullname" . }}
+  labels:
+    {{- include "signal.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: signal
+      protocol: TCP
+      name: signal
+  selector:
+    {{- include "signal.selectorLabels" . | nindent 4 }}
+{{- end }}

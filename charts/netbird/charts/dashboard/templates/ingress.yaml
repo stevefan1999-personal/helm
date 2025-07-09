@@ -1,0 +1,37 @@
+{{- $globalIngress := $.Values.global.netbird.ingress | default dict -}}
+{{- $subchartIngress := .Values.ingress | default dict -}}
+{{- $ingress := merge $subchartIngress $globalIngress -}}
+
+{{- if $ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "dashboard.fullname" . }}
+  labels:
+    {{- include "dashboard.labels" . | nindent 4 }}
+  {{- with $ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if $ingress.className }}
+  ingressClassName: {{ $ingress.className }}
+  {{- end }}
+  {{- if $ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ $.Values.global.netbird.fqdn | quote }}
+      secretName: {{ $ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ $.Values.global.netbird.fqdn | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dashboard.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

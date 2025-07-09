@@ -1,0 +1,69 @@
+{{- if and (not .Values.global.postgresql.external.enabled) .Values.global.postgresql.cnpg.backup.enabled }}
+# CronJob for database backup
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-db-backup
+  labels:
+    app: {{ .Release.Name }}-db-backup
+spec:
+  schedule: {{ .Values.global.postgresql.cnpg.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: backup
+              image: "11notes/cron:4.6"
+              env:
+                - name: TZ
+                  value: {{ .Values.global.timezone | quote }}
+              command:
+                - "/bin/sh"
+                - "-c"
+                - |
+                  # Create a backup using CNPG backup command
+                  kubectl cnpg backup {{ .Release.Name }}-postgresql
+              securityContext:
+                runAsUser: 1000
+                runAsGroup: 1000
+                fsGroup: 1000
+                readOnlyRootFilesystem: true
+          restartPolicy: OnFailure
+          serviceAccountName: {{ .Release.Name }}-backup-sa
+---
+# Service Account for backup job
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-backup-sa
+---
+# Role for backup job
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-backup-role
+rules:
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["backups"]
+    verbs: ["create"]
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get"]
+---
+# RoleBinding for backup job
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-backup-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-backup-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-backup-sa
+{{- end }}

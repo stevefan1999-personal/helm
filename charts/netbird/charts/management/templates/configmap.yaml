@@ -1,0 +1,78 @@
+# Management ConfigMap for non-sensitive configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "management.fullname" . }}-config
+  labels:
+    {{- include "management.labels" . | nindent 4 }}
+data:
+  # Store configuration
+  NETBIRD_STORE_ENGINE: "postgres"
+  NB_ACTIVITY_EVENT_STORE_ENGINE: "postgres"
+  management.json: |-
+    {
+{{- if $.Values.global.auth.stuns.enabled }}
+        "Stuns": {{ $.Values.global.auth.stuns.servers | toJson }},
+{{- end }}
+{{- if $.Values.global.auth.turn.enabled }}
+        "TURNConfig": {
+            "Turns": [
+                {
+                    "Proto": "{{ $.Values.global.auth.turn.proto }}",
+                    "URI": "{{ $.Values.global.auth.turn.uri }}",
+                    "Username": "{{ $.Values.global.auth.turn.user }}",
+                    "Password": "{{ $.Values.global.auth.turn.password }}"
+                }
+            ],
+            "Enabled": {{ $.Values.global.auth.turn.enabled }}
+        },
+{{- end }}
+        "Relay": {
+            "Addresses": {{ include "netbird.relay.addresses" . }},
+            "Secret": "{{ $.Values.global.netbird.relay.secret }}"
+        },
+        "Signal": {
+            "Proto": "wss",
+            "URI": "{{ $.Values.global.netbird.signal.ingress.host }}:443"
+        },
+        "ReverseProxy": {{ $.Values.global.auth.reverseProxy | toJson }},
+        "HttpConfig": {
+            "Address": "0.0.0.0:80",
+            "AuthIssuer": "{{ include "netbird.auth.authority" . }}",
+            "AuthAudience": "{{ $.Values.global.auth.audience }}",
+            "OIDCConfigEndpoint":"{{ include "netbird.auth.oidcConfigEndpoint" . }}"
+        },
+        "PKCEAuthorizationFlow": {
+            "ProviderConfig": {
+                "Audience": "{{ include "netbird.auth.pkce.audience" . }}",
+                "ClientID": "{{ include "netbird.auth.pkce.clientId" . }}",
+                "ClientSecret": "{{ include "netbird.auth.pkce.clientSecret" . }}",
+                "TokenEndpoint": "{{ include "netbird.auth.pkce.tokenEndpoint" . }}",
+                "AuthorizationEndpoint": "{{ include "netbird.auth.pkce.authorizationEndpoint" . }}",
+                "Scope": "{{ include "netbird.auth.pkce.scope" . }}",
+                "RedirectURLs": {{ $.Values.global.auth.pkce.redirectURLs | toJson }}
+            }
+        },
+        "DeviceAuthorizationFlow": {
+            "Provider": "{{ $.Values.global.auth.deviceAuthorizationFlow.provider }}",
+            "ProviderConfig": {
+                "Audience": "{{ include "netbird.auth.deviceAuth.audience" . }}",
+                "ClientID": "{{ include "netbird.auth.deviceAuth.clientId" . }}",
+                "Domain": "{{ $.Values.global.auth.deviceAuthorizationFlow.domain }}",
+                "TokenEndpoint": "{{ include "netbird.auth.deviceAuth.tokenEndpoint" . }}",
+                "DeviceAuthEndpoint": "{{ include "netbird.auth.deviceAuth.deviceAuthEndpoint" . }}",
+                "Scope": "{{ include "netbird.auth.deviceAuth.scope" . }}",
+                "UseIDToken": {{ $.Values.global.auth.deviceAuthorizationFlow.useIDToken }}
+            }
+        },
+        "IdpManagerConfig": {
+            "ManagerType": "{{ $.Values.global.auth.idpManager.managerType }}",
+            "ClientConfig": {
+                "Issuer": "{{ include "netbird.auth.idpManager.issuer" . }}",
+                "TokenEndpoint": "{{ include "netbird.auth.idpManager.tokenEndpoint" . }}",
+                "ClientID": "{{ include "netbird.auth.idpManager.clientID" . }}",
+                "ClientSecret": "{{ include "netbird.auth.idpManager.clientSecret" . }}",
+                "GrantType": "{{ $.Values.global.auth.idpManager.clientConfig.grantType }}"
+            }
+        }
+    }

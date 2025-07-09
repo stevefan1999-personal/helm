@@ -1,0 +1,40 @@
+# Management configuration
+enabled: true
+replicas: 1
+
+image:
+  repository: "netbirdio/management"
+  tag: "0.50.1"
+  pullPolicy: IfNotPresent
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  ports:
+    http: 80
+    grpc: 33073
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+
+persistence:
+  enabled: true
+  storageClass: ""
+  etc:
+    size: "100Mi"
+  var:
+    size: "1Gi"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  tls:
+    secretName: "netbird-tls"

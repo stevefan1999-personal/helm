@@ -1,0 +1,27 @@
+apiVersion: v2
+name: netbird
+description: A Helm chart for NetBird
+type: application
+version: 0.1.0
+appVersion: "0.50.1"
+dependencies:
+- name: cloudnative-pg
+  version: "0.24.0"
+  repository: "https://cloudnative-pg.github.io/charts"
+  condition: global.postgresql.cnpg.enabled
+- name: dashboard
+  version: "0.1.0"
+  repository: "file://charts/dashboard"
+  condition: dashboard.enabled
+- name: management
+  version: "0.1.0"
+  repository: "file://charts/management"
+  condition: management.enabled
+- name: signal
+  version: "0.1.0"
+  repository: "file://charts/signal"
+  condition: signal.enabled
+- name: relay
+  version: "0.1.0"
+  repository: "file://charts/relay"
+  condition: relay.enabled

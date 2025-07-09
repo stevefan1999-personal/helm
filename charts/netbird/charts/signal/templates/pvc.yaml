@@ -1,0 +1,18 @@
+{{- if and .Values.enabled .Values.persistence.enabled }}
+# Signal PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "signal.fullname" . }}-var
+  labels:
+    {{- include "signal.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.var.size }}
+{{- end }}

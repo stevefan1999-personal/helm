@@ -1,0 +1,36 @@
+# Signal configuration
+enabled: true
+replicas: 1
+
+image:
+  repository: "netbirdio/signal"
+  tag: "0.50.1"
+  pullPolicy: IfNotPresent
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 10000
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+
+persistence:
+  enabled: true
+  storageClass: ""
+  var:
+    size: "100Mi"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  tls:
+    secretName: "netbird-tls"

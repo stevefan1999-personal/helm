@@ -1,0 +1,49 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+{{- if .Values.dashboard.ingress.enabled }}
+You can access the NetBird dashboard at:
+  https://{{ .Values.global.netbird.fqdn }}
+
+{{- else if .Values.dashboard.enabled }}
+To access the NetBird dashboard, you need to either:
+
+1. Enable the Ingress by setting `dashboard.ingress.enabled=true` in your values.yaml file, or
+2. Port-forward the dashboard service:
+
+   kubectl port-forward svc/{{ .Release.Name }}-dashboard 3000:3000
+
+   Then access the dashboard at: http://localhost:3000
+{{- end }}
+
+{{- if and (not .Values.global.postgresql.external.enabled) .Values.global.postgresql.cnpg.enabled }}
+The PostgreSQL database is managed by CloudNativePG and is accessible at:
+
+  {{ .Release.Name }}-postgresql-rw:5432 (read-write)
+  {{ .Release.Name }}-postgresql-ro:5432 (read-only)
+
+{{- else if .Values.global.postgresql.external.enabled }}
+Using external PostgreSQL database at:
+
+  {{ .Values.global.postgresql.external.host }}:{{ .Values.global.postgresql.external.port }}
+{{- end }}
+
+Deployed components:
+{{- if .Values.dashboard.enabled }}
+- Dashboard
+{{- end }}
+{{- if .Values.management.enabled }}
+- Management
+{{- end }}
+{{- if .Values.signal.enabled }}
+- Signal
+{{- end }}
+{{- if .Values.relay.enabled }}
+- Relay
+{{- end }}

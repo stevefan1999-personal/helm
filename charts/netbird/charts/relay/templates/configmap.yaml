@@ -1,0 +1,11 @@
+# Relay ConfigMap for non-sensitive configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "relay.fullname" . }}-config
+  labels:
+    {{- include "relay.labels" . | nindent 4 }}
+data:
+  # Relay-specific configuration
+  NB_LISTEN_ADDRESS: "0.0.0.0:{{ .Values.service.port }}"
+  NB_EXPOSED_ADDRESS: {{ printf "rels://%s:%v" (include "netbird.relay.fqdn" .) .Values.service.port | quote }}

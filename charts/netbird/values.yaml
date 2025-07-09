@@ -1,0 +1,217 @@
+# Global configuration for NetBird Helm Chart
+global:
+  # Sets the timezone for all containers in the deployment.
+  timezone: "UTC"
+
+  # NetBird specific global configurations
+  netbird:
+    # Fully Qualified Domain Name (FQDN) for the NetBird instance.
+    # This is used as a base for various service endpoints unless overridden.
+    fqdn: "netbird.example.com"
+
+    # Global ingress settings for NetBird components.
+    # These settings can be overridden at the component level (management, relay, signal).
+    ingress:
+      # Enables or disables ingress for all NetBird components.
+      enabled: true
+      # Specifies the IngressClass name to be used. Leave empty for default.
+      className: "nginx" # Optional
+      # TLS configuration for ingress.
+      tls:
+        # Enables or disables TLS for ingress.
+        enabled: false
+        # The name of the Kubernetes Secret that contains the TLS certificate and key.
+        secretName: ""
+    # Management service specific configurations.
+    management:
+      # Ingress configurations for the Management API.
+      ingress:
+        # HTTP ingress configuration.
+        http:
+          # Hostname for the HTTP API endpoint.
+          host: "http.management.netbird.example.com"
+        # gRPC ingress configuration.
+        grpc:
+          # Hostname for the gRPC API endpoint.
+          host: "grpc.management.netbird.example.com"
+    # Relay service specific configurations.
+    relay:
+      # Secret used for authentication with the Relay server.
+      secret: "netbird"
+      # Ingress configuration for the Relay server.
+      ingress:
+        # Hostname for the Relay server.
+        host: "relay.netbird.example.com"
+      # List of additional relay addresses.
+      extraAddresses: []
+    # Signal service specific configurations.
+    signal:
+      # Ingress configuration for the Signal server.
+      ingress:
+        # Hostname for the Signal server.
+        host: "signal.netbird.example.com"
+
+  # Keycloak specific global configurations.
+  keycloak:
+    # Fully Qualified Domain Name (FQDN) for the Keycloak instance.
+    fqdn: "keycloak.example.com"
+    # The realm name configured in Keycloak for NetBird.
+    realm: "netbird"
+
+  # Authentication related global configurations.
+  auth:
+    # The authority URL for authentication. If empty, defaults to "https://<keycloak.fqdn>/realms/<keycloak.realm>".
+    authority: ""
+    # The audience for the authentication client.
+    audience: "netbird-client"
+    # The client ID for the authentication client.
+    clientId: "netbird-client"
+    # The client secret for the authentication client.
+    clientSecret: ""
+    # Supported OAuth scopes.
+    supportedScopes: "openid"
+    # Source of the authentication token.
+    tokenSource: "accessToken"
+    # Device Authorization Flow configurations.
+    deviceAuthorizationFlow:
+      # Provider for the device authorization flow (e.g., "auth0").
+      provider: "auth0"
+      # Audience for the device authorization flow.
+      audience: ""
+      # Client ID for the device authorization flow.
+      clientId: ""
+      # Domain for the device authorization flow.
+      domain: ""
+      # Token endpoint for the device authorization flow.
+      tokenEndpoint: ""
+      # Device authorization endpoint.
+      deviceAuthEndpoint: ""
+      # Scope for the device authorization flow.
+      scope: ""
+      # Whether to use ID token for device authorization flow.
+      useIDToken: false
+    # PKCE (Proof Key for Code Exchange) Authorization Flow configurations.
+    pkce:
+      # Audience for the PKCE flow.
+      audience: ""
+      # Client ID for the PKCE flow.
+      clientId: ""
+      # Client secret for the PKCE flow.
+      clientSecret: ""
+      # Token endpoint for the PKCE flow.
+      tokenEndpoint: ""
+      # Authorization endpoint for the PKCE flow.
+      authorizationEndpoint: ""
+      # Scope for the PKCE flow.
+      scope: ""
+      # Redirect URLs for the PKCE flow.
+      redirectURLs: []
+    # STUN (Session Traversal Utilities for NAT) server configurations.
+    stuns:
+      # Enables or disables STUN servers.
+      enabled: false
+      # List of STUN servers.
+      servers:
+      - proto: "udp"
+        uri: "stun:stun.l.google.com:19302"
+    # TURN (Traversal Using Relays around NAT) server configurations.
+    turn:
+      # Enables or disables TURN server.
+      enabled: false
+      # Protocol for the TURN server.
+      proto: "udp"
+      # URI for the TURN server.
+      uri: ""
+      # Username for the TURN server.
+      user: ""
+      # Password for the TURN server.
+      password: ""
+    # Reverse Proxy configurations.
+    reverseProxy:
+      # List of trusted HTTP proxies.
+      trustedHTTPProxies: []
+      # Count of trusted HTTP proxies.
+      trustedHTTPProxiesCount: 0
+      # List of trusted peers.
+      trustedPeers:
+      - "0.0.0.0/0"
+    # Identity Provider (IdP) Manager configurations.
+    idpManager:
+      # Type of IdP manager (e.g., "keycloak").
+      managerType: "keycloak"
+      # Client configurations for the IdP manager.
+      clientConfig:
+        # Issuer URL for the IdP manager.
+        issuer: ""
+        # Token endpoint for the IdP manager.
+        tokenEndpoint: ""
+        # Client ID for the IdP manager.
+        clientID: ""
+        # Client secret for the IdP manager.
+        clientSecret: ""
+        # Grant type for the IdP manager.
+        grantType: "client_credentials"
+
+  # PostgreSQL database configuration.
+  postgresql:
+    # External PostgreSQL database configuration.
+    external:
+      # Enables or disables the use of an external PostgreSQL database.
+      enabled: true
+      # Hostname of the external PostgreSQL database.
+      host: "postgres.example.com"
+      # Port of the external PostgreSQL database.
+      port: 5432
+      # Username for the external PostgreSQL database.
+      user: "postgres"
+      # Password for the external PostgreSQL database.
+      password: ""
+      # Database name for the external PostgreSQL.
+      database: "postgres"
+
+    # Cloud Native PostgreSQL (CNPG) configuration. Used if external.enabled is false.
+    cnpg:
+      # Enables or disables the deployment of CNPG.
+      enabled: false
+      # Number of CNPG instances.
+      instances: 1
+      # Resource requests and limits for CNPG pods.
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+      # Storage configurations for CNPG.
+      storage:
+        # Size of the storage volume.
+        size: "1Gi"
+        # Storage class name for the persistent volume.
+        storageClass: ""
+      # Backup configurations for CNPG.
+      backup:
+        # Enables or disables CNPG backups.
+        enabled: true
+        # Cron schedule for daily backups (e.g., "0 3 * * *").
+        schedule: "0 3 * * *"
+
+# Dashboard subchart configuration.
+dashboard:
+  # Enables or disables the deployment of the dashboard component.
+  enabled: true
+
+# Management subchart configuration.
+management:
+  # Enables or disables the deployment of the management component.
+  enabled: true
+
+# Signal subchart configuration.
+signal:
+  # Enables or disables the deployment of the signal component.
+  enabled: true
+
+# Relay subchart configuration.
+relay:
+  # Enables or disables the deployment of the relay component.
+  enabled: true

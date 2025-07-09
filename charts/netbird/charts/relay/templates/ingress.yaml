@@ -1,0 +1,37 @@
+{{- $globalIngress := $.Values.global.netbird.ingress | default dict -}}
+{{- $subchartIngress := .Values.global.netbird.relay.ingress | default dict -}}
+{{- $ingress := merge $subchartIngress $globalIngress -}}
+
+{{- if $ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "relay.fullname" . }}
+  labels:
+    {{- include "relay.labels" . | nindent 4 }}
+  {{- with $ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if $ingress.className }}
+  ingressClassName: {{ $ingress.className }}
+  {{- end }}
+  {{- if $ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ $ingress.host | quote }}
+      secretName: {{ $ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ $ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "relay.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

@@ -1,0 +1,18 @@
+{{- if .Values.enabled }}
+# Relay Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "relay.fullname" . }}
+  labels:
+    {{- include "relay.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: relay
+      protocol: TCP
+      name: relay
+  selector:
+    {{- include "relay.selectorLabels" . | nindent 4 }}
+{{- end }}

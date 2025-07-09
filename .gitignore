@@ -1,0 +1,39 @@
+# Docker
+.dockerignore
+Dockerfile.bak
+docker-compose.override.yml
+docker-compose.local.yml
+*.env
+.env
+.env.*
+!.env.example
+.docker/
+docker-compose.yml.orig
+
+# Docker Compose
+docker-compose.*.yml
+!docker-compose.yaml
+!docker-compose.yml
+.env
+.env.*
+!.env.example
+
+# Helm
+charts/*.tgz
+.helm/
+*.tgz
+!charts/
+!Chart.yaml
+!values.yaml
+!templates/
+
+# Kubernetes
+*.kubeconfig
+*.pki
+*.key
+*.crt
+*.csr
+*.yaml.bak
+*.yml.bak
+cluster-info/
+kubeconfig

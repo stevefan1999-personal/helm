@@ -1,0 +1,19 @@
+# Dashboard ConfigMap for non-sensitive configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dashboard.fullname" . }}-config
+  labels:
+    {{- include "dashboard.labels" . | nindent 4 }}
+data:
+  # Dashboard-specific configuration
+  NETBIRD_MGMT_API_ENDPOINT: {{ printf "https://%s" (include "netbird.management.apiFqdn" .) }}
+  NETBIRD_MGMT_GRPC_API_ENDPOINT: {{ printf "https://%s" (include "netbird.management.grpcFqdn" .) }}
+  NETBIRD_SIGNAL_ENDPOINT: {{ printf "https://%s" (include "netbird.signal.fqdn" .) }}
+  NETBIRD_RELAY_ENDPOINT: {{ printf "rels://%s" (include "netbird.relay.fqdn" .) }}
+  AUTH_AUDIENCE: {{ $.Values.global.auth.audience | quote }}
+  AUTH_CLIENT_ID: {{ $.Values.global.auth.clientId | quote }}
+  AUTH_AUTHORITY: {{ include "netbird.auth.authority" . | quote }}
+  USE_AUTH0: "false"
+  AUTH_SUPPORTED_SCOPES: {{ $.Values.global.auth.supportedScopes | quote }}
+  NETBIRD_TOKEN_SOURCE: {{ $.Values.global.auth.tokenSource | quote }}
