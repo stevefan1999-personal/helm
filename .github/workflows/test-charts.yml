@@ -36,3 +36,4 @@ jobs:
     - name: Show pods
       run: |
         kubectl get pods 
+        kubectl wait --for=condition=Ready --all pod --timeout=300s
