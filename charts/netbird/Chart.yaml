@@ -11,17 +11,13 @@ dependencies:
   condition: global.postgresql.cnpg.enabled
 - name: dashboard
   version: "0.1.1"
-  repository: "file://charts/dashboard"
   condition: dashboard.enabled
 - name: management
   version: "0.1.1"
-  repository: "file://charts/management"
   condition: management.enabled
 - name: signal
   version: "0.1.1"
-  repository: "file://charts/signal"
   condition: signal.enabled
 - name: relay
   version: "0.1.1"
-  repository: "file://charts/relay"
   condition: relay.enabled

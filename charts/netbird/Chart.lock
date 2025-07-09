@@ -3,16 +3,16 @@ dependencies:
   repository: https://cloudnative-pg.github.io/charts
   version: 0.24.0
 - name: dashboard
-  repository: file://charts/dashboard
+  repository: ""
   version: 0.1.1
 - name: management
-  repository: file://charts/management
+  repository: ""
   version: 0.1.1
 - name: signal
-  repository: file://charts/signal
+  repository: ""
   version: 0.1.1
 - name: relay
-  repository: file://charts/relay
+  repository: ""
   version: 0.1.1
-digest: sha256:edf040591cc03f2e09af6a5844d11a65d81cc7f9ca541e411ef95f34842985c7
-generated: "2025-07-09T10:36:35.454275733+08:00"
+digest: sha256:e9179b3312ceeebc76993c6b43725e6b866c3c1154e3af5abc7eaca4450ce3cc
+generated: "2025-07-09T10:58:59.889793874+08:00"
