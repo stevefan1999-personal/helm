@@ -3,6 +3,37 @@ entries:
   netbird:
   - apiVersion: v2
     appVersion: 0.50.1
+    created: "2025-07-09T03:14:21.138742688Z"
+    dependencies:
+    - condition: global.postgresql.cnpg.enabled
+      name: cloudnative-pg
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.24.0
+    - condition: dashboard.enabled
+      name: dashboard
+      repository: ""
+      version: 0.1.1
+    - condition: management.enabled
+      name: management
+      repository: ""
+      version: 0.1.1
+    - condition: signal.enabled
+      name: signal
+      repository: ""
+      version: 0.1.1
+    - condition: relay.enabled
+      name: relay
+      repository: ""
+      version: 0.1.1
+    description: A Helm chart for NetBird
+    digest: d022a485d901afe5e216f0f996b8e5798ceeb7eaec71c9f3808de7cc9c1b2e1e
+    name: netbird
+    type: application
+    urls:
+    - https://github.com/stevefan1999-personal/helm/releases/download/netbird-0.1.1/netbird-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
+    appVersion: 0.50.1
     created: "2025-07-09T01:56:08.087466449Z"
     dependencies:
     - condition: global.postgresql.cnpg.enabled
@@ -32,4 +63,4 @@ entries:
     urls:
     - https://stevefan1999-personal.github.io/helm/netbird-0.1.0.tgz
     version: 0.1.0
-generated: "2025-07-09T01:56:08.078563823Z"
+generated: "2025-07-09T03:14:21.138755262Z"
