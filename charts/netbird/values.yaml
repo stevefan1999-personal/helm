@@ -167,26 +167,40 @@ global:
     cnpg:
       # Enables or disables the deployment of CNPG.
       enabled: true
-      # Number of CNPG instances.
-      instances: 1
-      # Resource requests and limits for CNPG pods.
-      resources:
-        requests:
-          cpu: "100m"
-          memory: "256Mi"
-        limits:
-          cpu: "500m"
-          memory: "512Mi"
-      # Storage configurations for CNPG.
-      storage:
-        # Size of the storage volume.
-        size: "1Gi"
-        # Storage class name for the persistent volume.
-        storageClass: ""
-      # Backup configurations for CNPG.
+      spec:
+        # Number of CNPG instances.
+        instances: 1
+        postgresql:
+          parameters:
+            max_connections: "100"
+            shared_buffers: "128MB"
+        # Resource requests and limits for CNPG pods.
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        # Storage configurations for CNPG.
+        storage:
+          # Size of the storage volume.
+          size: "1Gi"
+        # Backup configurations for CNPG.
+        backup:
+          barmanObjectStore:
+            destinationPath: "s3://backups/"
+            endpointURL: "http://minio:9000"
+            s3Credentials:
+              accessKeyId:
+                name: netbird-postgresql-backup-creds
+                key: ACCESS_KEY_ID
+              secretAccessKey:
+                name: netbird-postgresql-backup-creds
+                key: ACCESS_SECRET_KEY
       backup:
         # Enables or disables CNPG backups.
-        enabled: true
+        enabled: false
         # Cron schedule for daily backups (e.g., "0 3 * * *").
         schedule: "0 3 * * *"
 

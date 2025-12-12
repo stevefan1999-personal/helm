@@ -1,0 +1,11 @@
+{{- if and (not .Values.global.postgresql.external.enabled) .Values.global.postgresql.cnpg.enabled .Values.global.postgresql.cnpg.backup.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ .Release.Name }}-postgresql-backup
+spec:
+  schedule: {{ .Values.global.postgresql.cnpg.backup.schedule | quote }}
+  backupOwnerReference: self
+  cluster:
+    name: {{ .Release.Name }}-postgresql
+{{- end }}

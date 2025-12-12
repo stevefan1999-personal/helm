@@ -84,3 +84,40 @@ Create the keycloak device authorization endpoint URL
 {{- define "netbird.keycloak.deviceAuthUrl" -}}
 {{- printf "%s/protocol/openid-connect/auth/device" (include "netbird.auth.authority" .) -}}
 {{- end -}}
+
+{{/*
+Create the store engine
+*/}}
+{{- define "netbird.store.engine" -}}
+{{- if include "netbird.postgresql.enabled" . -}}
+{{- print "postgres" -}}
+{{- else -}}
+{{- print .Values.store.engine -}}
+{{- end -}}
+{{- end -}}
+{{/*
+Create the wait-for-db command
+*/}}
+{{- define "netbird.postgresql.enabled" -}}
+{{- or .Values.global.postgresql.external.enabled .Values.global.postgresql.cnpg.enabled -}}
+{{- end -}}
+
+{{- define "netbird.postgresql.host" -}}
+{{- if .Values.global.postgresql.external.enabled -}}
+{{- .Values.global.postgresql.external.host -}}
+{{- else -}}
+{{- printf "%s-postgresql-rw" .Release.Name -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "netbird.postgresql.port" -}}
+{{- if .Values.global.postgresql.external.enabled -}}
+{{- .Values.global.postgresql.external.port -}}
+{{- else -}}
+{{- print "5432" -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "netbird.wait-for-db" -}}
+'until nc -z {{ include "netbird.postgresql.host" . }} {{ include "netbird.postgresql.port" . }}; do echo waiting for postgresql; sleep 2; done;'
+{{- end -}}

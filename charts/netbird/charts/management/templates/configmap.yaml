@@ -7,8 +7,8 @@ metadata:
     {{- include "management.labels" . | nindent 4 }}
 data:
   # Store configuration
-  NETBIRD_STORE_ENGINE: "postgres"
-  NB_ACTIVITY_EVENT_STORE_ENGINE: "postgres"
+  NETBIRD_STORE_ENGINE: {{ include "netbird.store.engine" . | quote }}
+  NB_ACTIVITY_EVENT_STORE_ENGINE: {{ include "netbird.store.engine" . | quote }}
   management.json: |-
     {
 {{- if $.Values.global.auth.stuns.enabled }}
@@ -35,7 +35,9 @@ data:
             "Proto": "wss",
             "URI": "{{ $.Values.global.netbird.signal.ingress.host }}:443"
         },
-        "ReverseProxy": {{ $.Values.global.auth.reverseProxy | toJson }},
+        "StoreConfig": {
+            "Engine": {{ include "netbird.store.engine" . | quote }}
+        },
         "HttpConfig": {
             "Address": "0.0.0.0:{{ .Values.service.port }}",
             "AuthIssuer": "{{ include "netbird.auth.authority" . }}",
