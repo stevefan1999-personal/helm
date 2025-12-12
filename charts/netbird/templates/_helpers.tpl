@@ -156,9 +156,11 @@ Coalesce helper for Relay FQDN
 Constructs the Relay.Addresses JSON array for management.json.
 */}}
 {{- define "netbird.relay.addresses" -}}
-{{- $addresses := list (printf "rels://%s:443" (include "netbird.relay.fqdn" .)) -}}
-{{- if .Values.global.netbird.relay.extraAddresses -}}
-{{- $addresses = append $addresses .Values.global.netbird.relay.extraAddresses -}}
+{{- $addresses := list -}}
+{{- if .Values.global.netbird.relay.enabled -}}
+{{- $addresses = append $addresses (printf "rels://%s:443" (include "netbird.relay.fqdn" .)) -}}
 {{- end -}}
+{{- $extraAddresses := .Values.global.netbird.relay.extraAddresses | default list -}}
+{{- $addresses := concat $addresses $extraAddresses -}}
 {{- $addresses | toJson -}}
 {{- end -}}

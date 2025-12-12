@@ -12,18 +12,11 @@ data:
   management.json: |-
     {
 {{- if $.Values.global.auth.stuns.enabled }}
-        "Stuns": {{ $.Values.global.auth.stuns.servers | toJson }},
+        "Stuns": {{ include "netbird.stuns" . }},
 {{- end }}
 {{- if $.Values.global.auth.turn.enabled }}
         "TURNConfig": {
-            "Turns": [
-                {
-                    "Proto": "{{ $.Values.global.auth.turn.proto }}",
-                    "URI": "{{ $.Values.global.auth.turn.uri }}",
-                    "Username": "{{ $.Values.global.auth.turn.user }}",
-                    "Password": "{{ $.Values.global.auth.turn.password }}"
-                }
-            ],
+            "Turns": {{ include "netbird.turns" . }},
             "Enabled": {{ $.Values.global.auth.turn.enabled }}
         },
 {{- end }}
@@ -34,6 +27,11 @@ data:
         "Signal": {
             "Proto": "wss",
             "URI": "{{ $.Values.global.netbird.signal.ingress.host }}:443"
+        },
+        "ReverseProxy": {
+            "TrustedHTTPProxies": {{ $.Values.global.auth.reverseProxy.trustedHTTPProxies | toJson }},
+            "TrustedHTTPProxiesCount": {{ $.Values.global.auth.reverseProxy.trustedHTTPProxiesCount }},
+            "TrustedPeers": {{ $.Values.global.auth.reverseProxy.trustedPeers | toJson }}
         },
         "StoreConfig": {
             "Engine": {{ include "netbird.store.engine" . | quote }}
@@ -52,7 +50,7 @@ data:
                 "TokenEndpoint": "{{ include "netbird.auth.pkce.tokenEndpoint" . }}",
                 "AuthorizationEndpoint": "{{ include "netbird.auth.pkce.authorizationEndpoint" . }}",
                 "Scope": "{{ include "netbird.auth.pkce.scope" . }}",
-                "RedirectURLs": {{ $.Values.global.auth.pkce.redirectURLs | toJson }}
+                "RedirectURLs": {{ include "netbird.redirectURLs" . }}
             }
         },
         "DeviceAuthorizationFlow": {

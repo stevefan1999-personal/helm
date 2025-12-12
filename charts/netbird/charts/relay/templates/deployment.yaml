@@ -1,4 +1,4 @@
-{{- if .Values.enabled }}
+{{- if .Values.global.netbird.relay.enabled }}
 # Relay Deployment
 apiVersion: apps/v1
 kind: Deployment

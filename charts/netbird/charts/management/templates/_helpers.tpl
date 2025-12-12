@@ -95,6 +95,36 @@ Create the store engine
 {{- print .Values.store.engine -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Create the stuns json array
+*/}}
+{{- define "netbird.stuns" -}}
+{{- $stuns := list -}}
+{{- range .Values.global.auth.stuns.servers -}}
+{{- $stuns = append $stuns (dict "Proto" .proto "URI" .uri) -}}
+{{- end -}}
+{{- $stuns | toJson -}}
+{{- end -}}
+
+{{/*
+Create the turns json array
+*/}}
+{{- define "netbird.turns" -}}
+{{- $turns := list -}}
+{{- range .Values.global.auth.turn.servers -}}
+{{- $turns = append $turns (dict "Proto" .proto "URI" .uri "Username" .user "Password" .password) -}}
+{{- end -}}
+{{- $turns | toJson -}}
+{{- end -}}
+
+{{/*
+Create the redirect urls json array
+*/}}
+{{- define "netbird.redirectURLs" -}}
+{{- .Values.global.auth.pkce.redirectURLs | toJson -}}
+{{- end -}}
+
 {{/*
 Create the wait-for-db command
 */}}

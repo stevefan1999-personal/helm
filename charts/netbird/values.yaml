@@ -112,14 +112,12 @@ global:
     turn:
       # Enables or disables TURN server.
       enabled: false
-      # Protocol for the TURN server.
-      proto: "udp"
-      # URI for the TURN server.
-      uri: ""
-      # Username for the TURN server.
-      user: ""
-      # Password for the TURN server.
-      password: ""
+      # List of TURN servers.
+      servers:
+      - proto: "udp"
+        uri: ""
+        user: ""
+        password: ""
     # Reverse Proxy configurations.
     reverseProxy:
       # List of trusted HTTP proxies.
