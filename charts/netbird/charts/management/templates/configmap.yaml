@@ -37,7 +37,7 @@ data:
         },
         "ReverseProxy": {{ $.Values.global.auth.reverseProxy | toJson }},
         "HttpConfig": {
-            "Address": "0.0.0.0:80",
+            "Address": "0.0.0.0:{{ .Values.service.port }}",
             "AuthIssuer": "{{ include "netbird.auth.authority" . }}",
             "AuthAudience": "{{ $.Values.global.auth.audience }}",
             "OIDCConfigEndpoint":"{{ include "netbird.auth.oidcConfigEndpoint" . }}"

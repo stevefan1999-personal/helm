@@ -26,16 +26,10 @@ global:
     management:
       # Ingress configurations for the Management API.
       ingress:
-        # HTTP ingress configuration.
-        http:
-          # Hostname for the HTTP API endpoint.
-          host: "http.management.netbird.example.com"
-        # gRPC ingress configuration.
-        grpc:
-          # Hostname for the gRPC API endpoint.
-          host: "grpc.management.netbird.example.com"
+        host: "management.netbird.example.com"
     # Relay service specific configurations.
     relay:
+      enabled: true
       # Secret used for authentication with the Relay server.
       secret: "netbird"
       # Ingress configuration for the Relay server.

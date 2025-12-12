@@ -132,17 +132,10 @@ Create the OIDC config endpoint URL
 {{- end -}}
 
 {{/*
-Coalesce helper for Management API FQDN
+Create the management fqdn
 */}}
-{{- define "netbird.management.apiFqdn" -}}
-{{- coalesce $.Values.global.netbird.management.ingress.http.host $.Values.global.netbird.fqdn -}}
-{{- end -}}
-
-{{/*
-Coalesce helper for Management gRPC FQDN
-*/}}
-{{- define "netbird.management.grpcFqdn" -}}
-{{- coalesce $.Values.global.netbird.management.ingress.grpc.host $.Values.global.netbird.fqdn -}}
+{{- define "netbird.management.fqdn" -}}
+{{- .Values.global.netbird.management.ingress.host -}}
 {{- end -}}
 
 {{/*

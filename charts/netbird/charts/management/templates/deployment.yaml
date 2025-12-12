@@ -36,10 +36,7 @@ spec:
                 name: {{ include "management.fullname" . }}-secrets
           ports:
             - name: http
-              containerPort: 80
-              protocol: TCP
-            - name: grpc
-              containerPort: 33073
+              containerPort: {{ .Values.service.port }}
               protocol: TCP
           livenessProbe:
             httpGet:

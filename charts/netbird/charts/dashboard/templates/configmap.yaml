@@ -7,8 +7,8 @@ metadata:
     {{- include "dashboard.labels" . | nindent 4 }}
 data:
   # Dashboard-specific configuration
-  NETBIRD_MGMT_API_ENDPOINT: {{ printf "https://%s" (include "netbird.management.apiFqdn" .) }}
-  NETBIRD_MGMT_GRPC_API_ENDPOINT: {{ printf "https://%s" (include "netbird.management.grpcFqdn" .) }}
+  NETBIRD_MGMT_API_ENDPOINT: {{ printf "https://%s" (include "netbird.management.fqdn" .) }}
+  NETBIRD_MGMT_GRPC_API_ENDPOINT: {{ printf "https://%s" (include "netbird.management.fqdn" .) }}
   NETBIRD_SIGNAL_ENDPOINT: {{ printf "https://%s" (include "netbird.signal.fqdn" .) }}
   NETBIRD_RELAY_ENDPOINT: {{ printf "rels://%s" (include "netbird.relay.fqdn" .) }}
   AUTH_AUDIENCE: {{ $.Values.global.auth.audience | quote }}

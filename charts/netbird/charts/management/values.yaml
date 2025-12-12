@@ -11,9 +11,7 @@ securityContext: {}
 
 service:
   type: ClusterIP
-  ports:
-    http: 80
-    grpc: 33073
+  port: 443
 
 resources:
   requests:
