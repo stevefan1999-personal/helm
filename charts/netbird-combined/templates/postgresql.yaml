@@ -1,9 +1,20 @@
 {{- if and (not .Values.global.postgresql.external.enabled) .Values.global.postgresql.cnpg.enabled }}
-# CloudNativePG Cluster
+# Pre-create the superuser secret so CNPG uses our known password.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-postgresql-superuser
+type: kubernetes.io/basic-auth
+stringData:
+  username: "postgres"
+  password: {{ .Values.global.postgresql.cnpg.password | default "postgres" | quote }}
+---
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: {{ .Release.Name }}-postgresql
 spec:
+  superuserSecret:
+    name: {{ .Release.Name }}-postgresql-superuser
   {{- toYaml .Values.global.postgresql.cnpg.spec | nindent 2 }}
 {{- end }}
