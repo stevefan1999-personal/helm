@@ -80,20 +80,27 @@ jobs:
           name: netbird-cnpg
           namespace: default
           install_cnpg: true
+          install_casdoor: true
           args: >-
             --set global.netbird.ingress.enabled=false
+            --set global.auth.authority=http://casdoor.casdoor.svc.cluster.local:8000
+            --set global.auth.idpManager.managerType=none
         - chart: netbird
           name: netbird-sqlite
           namespace: default
           install_cnpg: false
+          install_casdoor: true
           args: >-
             --set global.netbird.ingress.enabled=false
             --set global.postgresql.cnpg.enabled=false
             --set global.postgresql.external.enabled=false
+            --set global.auth.authority=http://casdoor.casdoor.svc.cluster.local:8000
+            --set global.auth.idpManager.managerType=none
         - chart: netbird-combined
           name: netbird-combined-sqlite
           namespace: netbird
           install_cnpg: false
+          install_casdoor: false
           args: >-
             --set global.fqdn=netbird.local
             --set global.relay.secret=test-secret
@@ -106,6 +113,7 @@ jobs:
           name: netbird-combined-cnpg
           namespace: netbird-cnpg
           install_cnpg: true
+          install_casdoor: false
           args: >-
             --set global.fqdn=netbird.local
             --set global.relay.secret=test-secret
@@ -127,6 +135,15 @@ jobs:
         kubectl apply --server-side -f \
           https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.26/releases/cnpg-1.26.0.yaml
         kubectl wait -n cnpg-system --for=condition=Ready --all pod --timeout=300s
+    - name: Install Casdoor (OIDC provider for netbird chart)
+      if: matrix.install_casdoor
+      run: |
+        kubectl create namespace casdoor
+        helm install casdoor oci://registry-1.docker.io/casbin/casdoor-helm-charts \
+          --namespace casdoor \
+          --set service.port=8000 \
+          --wait --timeout 300s
+        kubectl wait -n casdoor --for=condition=Ready --all pod --timeout=300s
     - name: Deploy ${{ matrix.chart }}
       run: helm install ${{ matrix.name }} charts/${{ matrix.chart }} ${{ matrix.args }} --timeout 300s
     - name: Wait for pods
@@ -148,6 +165,7 @@ jobs:
         - chart: netbird
           name: netbird-extpg
           namespace: default
+          install_casdoor: true
           args: >-
             --set global.netbird.ingress.enabled=false
             --set global.postgresql.cnpg.enabled=false
@@ -157,9 +175,12 @@ jobs:
             --set global.postgresql.external.user=netbird
             --set global.postgresql.external.password=netbird
             --set global.postgresql.external.database=netbird
+            --set global.auth.authority=http://casdoor.casdoor.svc.cluster.local:8000
+            --set global.auth.idpManager.managerType=none
         - chart: netbird-combined
           name: netbird-combined-extpg
           namespace: netbird
+          install_casdoor: false
           args: >-
             --set global.fqdn=netbird.local
             --set global.relay.secret=test-secret
@@ -191,6 +212,15 @@ jobs:
           --port=5432
         kubectl -n postgres expose pod postgres --port=5432 --target-port=5432
         kubectl -n postgres wait --for=condition=Ready pod/postgres --timeout=120s
+    - name: Install Casdoor (OIDC provider for netbird chart)
+      if: matrix.install_casdoor
+      run: |
+        kubectl create namespace casdoor
+        helm install casdoor oci://registry-1.docker.io/casbin/casdoor-helm-charts \
+          --namespace casdoor \
+          --set service.port=8000 \
+          --wait --timeout 300s
+        kubectl wait -n casdoor --for=condition=Ready --all pod --timeout=300s
     - name: Deploy ${{ matrix.chart }} with external PostgreSQL
       run: helm install ${{ matrix.name }} charts/${{ matrix.chart }} ${{ matrix.args }} --timeout 300s
     - name: Wait for pods
