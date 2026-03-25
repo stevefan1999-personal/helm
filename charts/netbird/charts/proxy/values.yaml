@@ -1,0 +1,100 @@
+# Proxy subchart configuration
+# Exposes internal services to the public internet via the NetBird mesh.
+# Requires a proxy token created via: netbird-server token create --name "my-proxy"
+enabled: false
+replicas: 1
+
+image:
+  repository: "netbirdio/reverse-proxy"
+  tag: "0.67.0"
+  pullPolicy: IfNotPresent
+
+securityContext: {}
+podSecurityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+
+# Public domain for the proxy cluster.
+# All proxy instances with the same domain form a cluster.
+# Wildcard DNS (*.domain) should point to this proxy.
+domain: ""
+
+# Bearer token for management server authentication (nbx_...).
+# Generate via: kubectl exec deploy/<release>-server -- netbird-server token create --name "proxy" --config /etc/netbird/config.yaml
+token: ""
+
+# Reference an existing secret for the proxy token.
+# The secret must contain a key named NB_PROXY_TOKEN.
+existingSecret: ""
+
+# Allow insecure (non-TLS) connection to management server.
+# Required when proxy connects to management over internal K8s network (http://).
+allowInsecure: true
+
+# TLS mode for the proxy itself.
+# The proxy handles its own TLS - it needs either ACME or static certs.
+# For Cloudflare/external TLS termination, use ACME with http-01 challenge
+# or provide static wildcard certs.
+tls:
+  # ACME (Let's Encrypt) - proxy auto-provisions certs.
+  acme:
+    enabled: true
+    # tls-alpn-01: works when proxy has direct port 443 access.
+    # http-01: use when behind Cloudflare or other CDN that blocks ALPN.
+    challengeType: "tls-alpn-01"
+    # For http-01, the ACME HTTP server listens on this port.
+    httpPort: 80
+    # ACME directory URL (default: Let's Encrypt production).
+    directory: ""
+    # External Account Binding (for ZeroSSL, etc).
+    eabKeyId: ""
+    eabHmacKey: ""
+  # Static certificates (alternative to ACME).
+  # Provide wildcard certs for *.domain if using custom domains.
+  static:
+    certFile: ""
+    keyFile: ""
+  # cert-manager: use an existing K8s TLS secret (alternative to ACME/static).
+  # The proxy will watch this cert for changes.
+  certManager:
+    secretName: ""
+
+# Forwarded proto detection: auto, http, https.
+# Set to "https" when behind a TLS-terminating proxy (Cloudflare, AWS ALB).
+# For Cloudflare proxied DNS (orange cloud), use "https".
+forwardedProto: "https"
+
+# Trusted upstream proxy CIDRs (comma-separated).
+# Set when behind Cloudflare, AWS ALB, or other load balancer.
+trustedProxies: ""
+
+# Log level: debug, info, warn, error.
+logLevel: "info"
+
+service:
+  type: ClusterIP
+  # Main HTTPS port (proxy handles its own TLS).
+  port: 443
+
+# Ingress for proxy.
+# IMPORTANT: Requires TLS passthrough - the proxy manages its own certificates.
+# For nginx-ingress: nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+# For Traefik: use IngressRouteTCP with TLS passthrough.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+
+persistence:
+  enabled: true
+  storageClass: ""
+  size: "100Mi"

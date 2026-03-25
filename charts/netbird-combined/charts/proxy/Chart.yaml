@@ -1,0 +1,6 @@
+apiVersion: v2
+name: proxy
+description: NetBird reverse proxy subchart - exposes internal services to the public internet
+type: application
+version: 0.1.0
+appVersion: "0.67.0"

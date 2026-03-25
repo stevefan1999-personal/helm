@@ -1,0 +1,140 @@
+{{/*
+Post-install Job to auto-create the proxy token after management is running.
+Only created when proxy.enabled=true and no token/existingSecret is provided.
+Uses the server image to run `netbird-server token create`.
+*/}}
+{{- if and .Values.enabled (not .Values.token) (not .Values.existingSecret) }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "proxy.fullname" . }}-token-creator
+  labels:
+    {{- include "proxy.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "proxy.fullname" . }}-token-creator
+  labels:
+    {{- include "proxy.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "update", "patch"]
+- apiGroups: [""]
+  resources: ["pods", "pods/exec"]
+  verbs: ["get", "list", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "proxy.fullname" . }}-token-creator
+  labels:
+    {{- include "proxy.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "proxy.fullname" . }}-token-creator
+subjects:
+- kind: ServiceAccount
+  name: {{ include "proxy.fullname" . }}-token-creator
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "proxy.fullname" . }}-create-token
+  labels:
+    {{- include "proxy.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        {{- include "proxy.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "proxy.fullname" . }}-token-creator
+      restartPolicy: OnFailure
+      containers:
+        - name: create-token
+          image: "bitnami/kubectl:latest"
+          env:
+            - name: SECRET_NAME
+              value: {{ include "proxy.fullname" . }}-proxy-secrets
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: SERVER_DEPLOY
+              value: {{ .Release.Name }}-management
+          command:
+            - bash
+            - -c
+            - |
+              set -e
+
+              # Check if secret already has a real token (not placeholder)
+              EXISTING_TOKEN=$(kubectl -n "$NAMESPACE" get secret "$SECRET_NAME" -o jsonpath='{.data.NB_PROXY_TOKEN}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+              if [ -n "$EXISTING_TOKEN" ] && echo "$EXISTING_TOKEN" | grep -q "^nbx_"; then
+                echo "Valid proxy token already exists in secret $SECRET_NAME"
+                exit 0
+              fi
+
+              # Wait for server pod to be ready
+              echo "Waiting for server deployment to be ready..."
+              kubectl -n "$NAMESPACE" wait --for=condition=Available deployment/"$SERVER_DEPLOY" --timeout=300s
+
+              # Get server pod name
+              SERVER_POD=$(kubectl -n "$NAMESPACE" get pods -l app.kubernetes.io/name=management -o jsonpath='{.items[0].metadata.name}')
+              echo "Server pod: $SERVER_POD"
+
+              # Create the proxy token
+              echo "Creating proxy token via server..."
+              TOKEN_OUTPUT=$(kubectl -n "$NAMESPACE" exec "$SERVER_POD" -- \
+                /usr/local/bin/netbird-server token create \
+                --name "helm-proxy-{{ .Release.Name }}" \
+                --config /etc/netbird/config.yaml 2>&1)
+
+              echo "Token output: $TOKEN_OUTPUT"
+
+              # Extract the token (format: nbx_...)
+              TOKEN=$(echo "$TOKEN_OUTPUT" | grep -oE 'nbx_[a-zA-Z0-9]+' | head -1)
+
+              if [ -z "$TOKEN" ]; then
+                echo "ERROR: Failed to extract token from output"
+                echo "Full output was: $TOKEN_OUTPUT"
+                exit 1
+              fi
+
+              echo "Token created: ${TOKEN:0:8}..."
+
+              # Create or update the secret
+              kubectl -n "$NAMESPACE" create secret generic "$SECRET_NAME" \
+                --from-literal=NB_PROXY_TOKEN="$TOKEN" \
+                --dry-run=client -o yaml | kubectl apply -f -
+
+              echo "Secret $SECRET_NAME updated with proxy token"
+
+              # Restart the proxy deployment to pick up the new token
+              if kubectl -n "$NAMESPACE" get deployment {{ include "proxy.fullname" . }} 2>/dev/null; then
+                kubectl -n "$NAMESPACE" rollout restart deployment {{ include "proxy.fullname" . }}
+                echo "Proxy deployment restarted"
+              fi
+
+              echo "Done! Proxy token provisioned successfully."
+{{- end }}

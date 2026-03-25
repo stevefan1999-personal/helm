@@ -1,0 +1,152 @@
+{{- if .Values.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "proxy.fullname" . }}
+  labels:
+    {{- include "proxy.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "proxy.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "proxy.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: proxy
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: NB_PROXY_MANAGEMENT_ADDRESS
+              value: {{ include "proxy.managementAddress" . | quote }}
+            - name: NB_PROXY_DOMAIN
+              value: {{ .Values.domain | quote }}
+            - name: NB_PROXY_LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: NB_PROXY_ADDRESS
+              value: ":8443"
+            - name: NB_PROXY_HEALTH_ADDRESS
+              value: ":8080"
+            - name: NB_PROXY_FORWARDED_PROTO
+              value: {{ .Values.forwardedProto | quote }}
+            {{- if .Values.allowInsecure }}
+            - name: NB_PROXY_ALLOW_INSECURE
+              value: "true"
+            {{- end }}
+            {{- if .Values.trustedProxies }}
+            - name: NB_PROXY_TRUSTED_PROXIES
+              value: {{ .Values.trustedProxies | quote }}
+            {{- end }}
+            {{- if .Values.tls.acme.enabled }}
+            - name: NB_PROXY_ACME_CERTIFICATES
+              value: "true"
+            - name: NB_PROXY_ACME_CHALLENGE_TYPE
+              value: {{ .Values.tls.acme.challengeType | quote }}
+            {{- if .Values.tls.acme.directory }}
+            - name: NB_PROXY_ACME_DIRECTORY
+              value: {{ .Values.tls.acme.directory | quote }}
+            {{- end }}
+            {{- if .Values.tls.acme.eabKeyId }}
+            - name: NB_PROXY_ACME_EAB_KID
+              value: {{ .Values.tls.acme.eabKeyId | quote }}
+            - name: NB_PROXY_ACME_EAB_HMAC_KEY
+              value: {{ .Values.tls.acme.eabHmacKey | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.tls.static.certFile }}
+            - name: NB_PROXY_CERTIFICATE_FILE
+              value: {{ .Values.tls.static.certFile | quote }}
+            - name: NB_PROXY_CERTIFICATE_KEY_FILE
+              value: {{ .Values.tls.static.keyFile | quote }}
+            {{- end }}
+            {{- if .Values.tls.certManager.secretName }}
+            - name: NB_PROXY_CERTIFICATE_DIRECTORY
+              value: "/tls"
+            - name: NB_PROXY_CERTIFICATE_FILE
+              value: "tls.crt"
+            - name: NB_PROXY_CERTIFICATE_KEY_FILE
+              value: "tls.key"
+            {{- end }}
+            - name: NB_PROXY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret | default (printf "%s-proxy-secrets" (include "proxy.fullname" .)) }}
+                  key: NB_PROXY_TOKEN
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+            - name: health
+              containerPort: 8080
+              protocol: TCP
+            {{- if and .Values.tls.acme.enabled (eq .Values.tls.acme.challengeType "http-01") }}
+            - name: acme-http
+              containerPort: {{ .Values.tls.acme.httpPort }}
+              protocol: TCP
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz/live
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /healthz/startup
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+            {{- if .Values.tls.certManager.secretName }}
+            - name: tls-cert
+              mountPath: /tls
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: certs
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "proxy.fullname" . }}-certs
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if .Values.tls.certManager.secretName }}
+        - name: tls-cert
+          secret:
+            secretName: {{ .Values.tls.certManager.secretName }}
+        {{- end }}
+{{- end }}

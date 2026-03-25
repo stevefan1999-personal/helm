@@ -131,3 +131,7 @@ server:
 # Dashboard subchart configuration.
 dashboard:
   enabled: true
+
+# Proxy subchart configuration (reverse proxy for exposing internal services).
+proxy:
+  enabled: false

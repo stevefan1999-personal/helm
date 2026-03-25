@@ -12,3 +12,6 @@ dependencies:
   - name: dashboard
     version: 0.1.0
     condition: dashboard.enabled
+  - name: proxy
+    version: 0.1.0
+    condition: proxy.enabled

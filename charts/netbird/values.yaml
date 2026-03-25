@@ -264,3 +264,8 @@ signal:
 relay:
   # Enables or disables the deployment of the relay component.
   enabled: true
+
+# Proxy subchart configuration (reverse proxy for exposing internal services).
+proxy:
+  # Disabled by default - requires proxy token from management API.
+  enabled: false

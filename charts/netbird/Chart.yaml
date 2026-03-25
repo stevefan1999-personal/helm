@@ -17,3 +17,6 @@ dependencies:
 - name: relay
   version: "0.2.1"
   condition: relay.enabled
+- name: proxy
+  version: "0.1.0"
+  condition: proxy.enabled
