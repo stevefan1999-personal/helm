@@ -2,38 +2,185 @@ name: Test Charts
 
 on:
   push:
-    branches:
-    - main
+    branches: [main]
+    paths: ['charts/**', '.github/workflows/test-charts.yml']
+  pull_request:
+    branches: [main]
+    paths: ['charts/**', '.github/workflows/test-charts.yml']
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chart: [netbird, netbird-combined]
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
+    - uses: azure/setup-helm@v4
+    - name: Lint
+      run: helm lint charts/${{ matrix.chart }}
 
-    - name: Set up Helm
-      uses: azure/setup-helm@v4.3.0
+  template:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - chart: netbird
+          name: default
+          args: ""
+        - chart: netbird
+          name: unified-ingress
+          args: >-
+            --set global.netbird.ingress.unified=true
+        - chart: netbird
+          name: sqlite
+          args: >-
+            --set global.postgresql.cnpg.enabled=false
+            --set global.postgresql.external.enabled=false
+        - chart: netbird
+          name: external-postgres
+          args: >-
+            --set global.postgresql.cnpg.enabled=false
+            --set global.postgresql.external.enabled=true
+            --set global.postgresql.external.host=pg.example.com
+            --set global.postgresql.external.password=secret
+        - chart: netbird-combined
+          name: default
+          args: ""
+        - chart: netbird-combined
+          name: same-domain
+          args: ""
+        - chart: netbird-combined
+          name: separate-domains
+          args: >-
+            --set global.dashboard.ingress.host=dashboard.example.com
+        - chart: netbird-combined
+          name: postgres
+          args: >-
+            --set global.postgresql.cnpg.enabled=true
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: azure/setup-helm@v4
+    - name: Template ${{ matrix.chart }} (${{ matrix.name }})
+      run: helm template test charts/${{ matrix.chart }} ${{ matrix.args }} > /dev/null
 
-    - name: Lint Chart
-      run: helm lint charts/netbird
-
-    - name: Set up kind
-      uses: helm/kind-action@v1
-
+  deploy:
+    needs: [lint, template]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - chart: netbird
+          name: netbird
+          namespace: default
+          install_cnpg: true
+          args: >-
+            --set global.netbird.ingress.enabled=false
+        - chart: netbird-combined
+          name: netbird-combined
+          namespace: netbird
+          install_cnpg: false
+          args: >-
+            --set global.fqdn=netbird.local
+            --set global.relay.secret=test-secret
+            --set global.auth.owner.email=admin@test.com
+            --set global.auth.owner.password=TestPass123
+            --set global.ingress.enabled=false
+            --namespace netbird
+            --create-namespace
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: azure/setup-helm@v4
+    - uses: helm/kind-action@v1
     - name: Install CNPG
+      if: matrix.install_cnpg
       run: |
         kubectl apply --server-side -f \
           https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.26/releases/cnpg-1.26.0.yaml
         kubectl wait -n cnpg-system --for=condition=Ready --all pod --timeout=300s
+    - name: Deploy ${{ matrix.chart }}
+      run: helm install ${{ matrix.name }} charts/${{ matrix.chart }} ${{ matrix.args }} --timeout 300s
+    - name: Wait for pods
+      run: kubectl wait -n ${{ matrix.namespace }} --for=condition=Ready --all pod --timeout=300s
+    - name: Show resources
+      if: always()
+      run: kubectl get pods -n ${{ matrix.namespace }} -o wide && kubectl get svc -n ${{ matrix.namespace }} && kubectl get pvc -n ${{ matrix.namespace }}
+    - name: Show logs on failure
+      if: failure()
+      run: for pod in $(kubectl get pods -n ${{ matrix.namespace }} -o name); do echo "=== $pod ===" && kubectl logs -n ${{ matrix.namespace }} $pod --tail=50 2>/dev/null || true; done
 
-    - name: Deploy Chart
-      run: |
-        helm install netbird charts/netbird --timeout 300s
-
-    - name: Show pods
-      run: |
-        kubectl get pods 
-        kubectl wait --for=condition=Ready --all pod --timeout=300s
+  deploy-external-postgres:
+    needs: [lint, template]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: netbird
+          POSTGRES_PASSWORD: netbird
+          POSTGRES_DB: netbird
+        ports:
+        - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U netbird"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - chart: netbird
+          name: netbird-extpg
+          namespace: default
+          args: >-
+            --set global.netbird.ingress.enabled=false
+            --set global.postgresql.cnpg.enabled=false
+            --set global.postgresql.external.enabled=true
+            --set global.postgresql.external.host=postgres
+            --set global.postgresql.external.port=5432
+            --set global.postgresql.external.user=netbird
+            --set global.postgresql.external.password=netbird
+            --set global.postgresql.external.database=netbird
+        - chart: netbird-combined
+          name: netbird-combined-extpg
+          namespace: netbird
+          args: >-
+            --set global.fqdn=netbird.local
+            --set global.relay.secret=test-secret
+            --set global.auth.owner.email=admin@test.com
+            --set global.auth.owner.password=TestPass123
+            --set global.ingress.enabled=false
+            --set global.postgresql.cnpg.enabled=false
+            --set global.postgresql.external.enabled=true
+            --set global.postgresql.external.host=postgres
+            --set global.postgresql.external.port=5432
+            --set global.postgresql.external.user=netbird
+            --set global.postgresql.external.password=netbird
+            --set global.postgresql.external.database=netbird
+            --namespace netbird
+            --create-namespace
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: azure/setup-helm@v4
+    - uses: helm/kind-action@v1
+    - name: Deploy ${{ matrix.chart }} with external PostgreSQL
+      run: helm install ${{ matrix.name }} charts/${{ matrix.chart }} ${{ matrix.args }} --timeout 300s
+    - name: Wait for pods
+      run: kubectl wait -n ${{ matrix.namespace }} --for=condition=Ready --all pod --timeout=300s
+    - name: Show resources
+      if: always()
+      run: kubectl get pods -n ${{ matrix.namespace }} -o wide && kubectl get svc -n ${{ matrix.namespace }}
+    - name: Show logs on failure
+      if: failure()
+      run: for pod in $(kubectl get pods -n ${{ matrix.namespace }} -o name); do echo "=== $pod ===" && kubectl logs -n ${{ matrix.namespace }} $pod --tail=50 2>/dev/null || true; done
