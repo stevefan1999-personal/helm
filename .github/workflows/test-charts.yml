@@ -83,7 +83,7 @@ jobs:
           install_casdoor: true
           args: >-
             --set global.netbird.ingress.enabled=false
-            --set global.auth.authority=http://casdoor.casdoor.svc.cluster.local:8000
+            --set global.auth.authority=http://mock-oidc.oidc.svc.cluster.local:8080/default
             --set global.auth.idpManager.managerType=none
         - chart: netbird
           name: netbird-sqlite
@@ -94,7 +94,7 @@ jobs:
             --set global.netbird.ingress.enabled=false
             --set global.postgresql.cnpg.enabled=false
             --set global.postgresql.external.enabled=false
-            --set global.auth.authority=http://casdoor.casdoor.svc.cluster.local:8000
+            --set global.auth.authority=http://mock-oidc.oidc.svc.cluster.local:8080/default
             --set global.auth.idpManager.managerType=none
         - chart: netbird-combined
           name: netbird-combined-sqlite
@@ -135,15 +135,13 @@ jobs:
         kubectl apply --server-side -f \
           https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.26/releases/cnpg-1.26.0.yaml
         kubectl wait -n cnpg-system --for=condition=Ready --all pod --timeout=300s
-    - name: Install Casdoor (OIDC provider for netbird chart)
+    - name: Install mock OIDC server (for netbird chart)
       if: matrix.install_casdoor
       run: |
-        kubectl create namespace casdoor
-        helm install casdoor oci://registry-1.docker.io/casbin/casdoor-helm-charts \
-          --namespace casdoor \
-          --set service.port=8000 \
-          --wait --timeout 300s
-        kubectl wait -n casdoor --for=condition=Ready --all pod --timeout=300s
+        kubectl create namespace oidc
+        kubectl -n oidc run mock-oidc --image=ghcr.io/navikt/mock-oauth2-server:2.1.10 --port=8080
+        kubectl -n oidc expose pod mock-oidc --port=8080 --target-port=8080
+        kubectl -n oidc wait --for=condition=Ready pod/mock-oidc --timeout=120s
     - name: Deploy ${{ matrix.chart }}
       run: helm install ${{ matrix.name }} charts/${{ matrix.chart }} ${{ matrix.args }} --timeout 300s
     - name: Wait for pods
@@ -175,7 +173,7 @@ jobs:
             --set global.postgresql.external.user=netbird
             --set global.postgresql.external.password=netbird
             --set global.postgresql.external.database=netbird
-            --set global.auth.authority=http://casdoor.casdoor.svc.cluster.local:8000
+            --set global.auth.authority=http://mock-oidc.oidc.svc.cluster.local:8080/default
             --set global.auth.idpManager.managerType=none
         - chart: netbird-combined
           name: netbird-combined-extpg
@@ -212,15 +210,13 @@ jobs:
           --port=5432
         kubectl -n postgres expose pod postgres --port=5432 --target-port=5432
         kubectl -n postgres wait --for=condition=Ready pod/postgres --timeout=120s
-    - name: Install Casdoor (OIDC provider for netbird chart)
+    - name: Install mock OIDC server (for netbird chart)
       if: matrix.install_casdoor
       run: |
-        kubectl create namespace casdoor
-        helm install casdoor oci://registry-1.docker.io/casbin/casdoor-helm-charts \
-          --namespace casdoor \
-          --set service.port=8000 \
-          --wait --timeout 300s
-        kubectl wait -n casdoor --for=condition=Ready --all pod --timeout=300s
+        kubectl create namespace oidc
+        kubectl -n oidc run mock-oidc --image=ghcr.io/navikt/mock-oauth2-server:2.1.10 --port=8080
+        kubectl -n oidc expose pod mock-oidc --port=8080 --target-port=8080
+        kubectl -n oidc wait --for=condition=Ready pod/mock-oidc --timeout=120s
     - name: Deploy ${{ matrix.chart }} with external PostgreSQL
       run: helm install ${{ matrix.name }} charts/${{ matrix.chart }} ${{ matrix.args }} --timeout 300s
     - name: Wait for pods
