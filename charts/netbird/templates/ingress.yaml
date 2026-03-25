@@ -1,0 +1,87 @@
+{{- if and .Values.global.netbird.ingress.enabled .Values.global.netbird.ingress.unified }}
+# Unified ingress: all services on a single domain with path-based routing.
+# Routes management API/gRPC, signal gRPC/WS, relay WS to their respective services,
+# and everything else to the dashboard.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-netbird
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  {{- with .Values.global.netbird.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.global.netbird.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.global.netbird.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.global.netbird.fqdn | quote }}
+      {{- with .Values.global.netbird.ingress.tls.secretName }}
+      secretName: {{ . }}
+      {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.global.netbird.fqdn | quote }}
+      http:
+        paths:
+          # Management: REST API
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-management
+                port:
+                  number: {{ .Values.management.service.port | default 443 }}
+          # Management: native gRPC
+          - path: /management.ManagementService
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-management
+                port:
+                  number: {{ .Values.management.service.port | default 443 }}
+          # Management: WebSocket proxy
+          - path: /ws-proxy/management
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-management
+                port:
+                  number: {{ .Values.management.service.port | default 443 }}
+          # Signal: native gRPC
+          - path: /signalexchange.SignalExchange
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-signal
+                port:
+                  number: {{ .Values.signal.service.port | default 80 }}
+          # Signal: WebSocket proxy
+          - path: /ws-proxy/signal
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-signal
+                port:
+                  number: {{ .Values.signal.service.port | default 80 }}
+          # Relay: WebSocket
+          - path: /relay
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-relay
+                port:
+                  number: {{ .Values.relay.service.port | default 443 }}
+          # Dashboard: catch-all (must be last)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-dashboard
+                port:
+                  number: {{ .Values.dashboard.service.port | default 3000 }}
+{{- end }}

@@ -1,8 +1,11 @@
+{{/*
+Dashboard ingress is skipped when unified ingress mode is enabled.
+*/}}
 {{- $globalIngress := $.Values.global.netbird.ingress | default dict -}}
 {{- $subchartIngress := .Values.ingress | default dict -}}
 {{- $ingress := merge $subchartIngress $globalIngress -}}
 
-{{- if $ingress.enabled }}
+{{- if and $ingress.enabled (not $globalIngress.unified) }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -21,7 +24,9 @@ spec:
   tls:
     - hosts:
         - {{ $.Values.global.netbird.fqdn | quote }}
-      secretName: {{ $ingress.tls.secretName }}
+      {{- with $ingress.tls.secretName }}
+      secretName: {{ . }}
+      {{- end }}
   {{- end }}
   rules:
     - host: {{ $.Values.global.netbird.fqdn | quote }}

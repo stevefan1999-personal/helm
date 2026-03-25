@@ -14,8 +14,21 @@ global:
     ingress:
       # Enables or disables ingress for all NetBird components.
       enabled: true
+      # When true, creates a single ingress with path-based routing on global.netbird.fqdn
+      # instead of separate ingresses per service. Required when all services share one domain.
+      unified: false
       # Specifies the IngressClass name to be used. Leave empty for default.
       className: "nginx" # Optional
+      # Default annotations for all NetBird ingresses.
+      # Required for gRPC streams, WebSocket, and long-lived connections.
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/server-snippets: |
+          grpc_read_timeout 86400s;
+          grpc_send_timeout 86400s;
       # TLS configuration for ingress.
       tls:
         # Enables or disables TLS for ingress.
