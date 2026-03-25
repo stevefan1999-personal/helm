@@ -11,7 +11,9 @@ securityContext: {}
 
 service:
   type: ClusterIP
-  port: 10000
+  # Signal listens on port 80 by default (HTTP + gRPC multiplexed).
+  # Port 10000 is the legacy gRPC-only port (auto-started separately).
+  port: 80
 
 resources:
   requests:

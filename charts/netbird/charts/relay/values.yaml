@@ -13,6 +13,12 @@ service:
   type: ClusterIP
   port: 443
 
+# Log level for the relay server (debug, info, warn, error).
+logLevel: "info"
+
+# Health check listen address inside the container.
+healthListenAddress: ":9000"
+
 resources:
   requests:
     cpu: "100m"

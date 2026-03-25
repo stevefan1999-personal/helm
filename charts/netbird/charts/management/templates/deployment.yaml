@@ -26,6 +26,23 @@ spec:
         - name: management
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - management
+            - --port
+            - {{ .Values.service.port | quote }}
+            - --log-file
+            - console
+            - --log-level
+            - {{ .Values.global.netbird.management.logLevel | default "info" }}
+            - --dns-domain
+            - {{ .Values.global.netbird.management.dnsDomain | default "netbird.selfhosted" }}
+            {{- if .Values.global.netbird.management.singleAccountModeDomain }}
+            - --single-account-mode-domain
+            - {{ .Values.global.netbird.management.singleAccountModeDomain | quote }}
+            {{- end }}
+            {{- if not .Values.global.netbird.management.anonymousMetrics.enabled }}
+            - --disable-anonymous-metrics=true
+            {{- end }}
           env:
             - name: TZ
               value: {{ $.Values.global.timezone | quote }}
@@ -41,30 +58,38 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           livenessProbe:
-            httpGet:
-              path: /metrics
+            tcpSocket:
               port: http
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 2
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
           readinessProbe:
-            httpGet:
-              path: /metrics
+            tcpSocket:
               port: http
             initialDelaySeconds: 5
             periodSeconds: 5
-            timeoutSeconds: 2
+            timeoutSeconds: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           volumeMounts:
+            - name: management-etc
+              mountPath: /etc/netbird
             - name: management-config
               mountPath: /etc/netbird/management.json
               subPath: management.json
             - name: management-var
               mountPath: /var/lib/netbird
       volumes:
+        - name: management-etc
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "management.fullname" . }}-etc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
         - name: management-config
           configMap:
             name: {{ include "management.fullname" . }}-config

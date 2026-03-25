@@ -17,3 +17,5 @@ data:
   USE_AUTH0: "false"
   AUTH_SUPPORTED_SCOPES: {{ $.Values.global.auth.supportedScopes | quote }}
   NETBIRD_TOKEN_SOURCE: {{ $.Values.global.auth.tokenSource | quote }}
+  AUTH_REDIRECT_URI: ""
+  AUTH_SILENT_REDIRECT_URI: ""

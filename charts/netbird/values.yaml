@@ -27,11 +27,29 @@ global:
       # Ingress configurations for the Management API.
       ingress:
         host: "management.netbird.example.com"
+      # DNS domain for NetBird network peers (e.g., "netbird.selfhosted").
+      dnsDomain: "netbird.selfhosted"
+      # If set, restricts management to a single account for this domain.
+      singleAccountModeDomain: ""
+      # Log level for the management server (debug, info, warn, error).
+      logLevel: "info"
+      # Encryption key for the data store. Auto-generated on first run if empty.
+      # IMPORTANT: Set this when using ConfigMap-mounted config (K8s), since the
+      # server cannot write back to a read-only ConfigMap.
+      dataStoreEncryptionKey: ""
+      # Whether to send anonymous usage metrics to NetBird.
+      anonymousMetrics:
+        enabled: true
+      # Whether to create a default allow-all policy for new accounts.
+      defaultPolicy:
+        enabled: true
     # Relay service specific configurations.
     relay:
       enabled: true
       # Secret used for authentication with the Relay server.
       secret: "netbird"
+      # Credential time-to-live for relay connections.
+      credentialsTTL: "24h"
       # Ingress configuration for the Relay server.
       ingress:
         # Hostname for the Relay server.
@@ -40,6 +58,8 @@ global:
       extraAddresses: []
     # Signal service specific configurations.
     signal:
+      # Log level for the signal server (debug, info, warn, error).
+      logLevel: "info"
       # Ingress configuration for the Signal server.
       ingress:
         # Hostname for the Signal server.
@@ -110,8 +130,14 @@ global:
         uri: "stun:stun.l.google.com:19302"
     # TURN (Traversal Using Relays around NAT) server configurations.
     turn:
-      # Enables or disables TURN server.
+      # Enables or disables TURN servers in management.json TURNConfig.
       enabled: false
+      # Use time-based credentials for TURN (HMAC-based, rotated via CredentialsTTL).
+      timeBasedCredentials: false
+      # TTL for TURN credentials when using time-based auth.
+      credentialsTTL: "12h"
+      # Shared secret for generating time-based TURN credentials.
+      secret: "secret"
       # List of TURN servers.
       servers:
       - proto: "udp"
@@ -129,7 +155,7 @@ global:
       - "0.0.0.0/0"
     # Identity Provider (IdP) Manager configurations.
     idpManager:
-      # Type of IdP manager (e.g., "keycloak").
+      # Type of IdP manager (e.g., "keycloak", "auth0", "azure", "zitadel").
       managerType: "keycloak"
       # Client configurations for the IdP manager.
       clientConfig:
@@ -143,6 +169,10 @@ global:
         clientSecret: ""
         # Grant type for the IdP manager.
         grantType: "client_credentials"
+      # Extra configuration map for IdP-specific settings.
+      # For Keycloak, this typically includes the admin URL:
+      #   AdminEndpoint: "https://keycloak.example.com/admin/realms/netbird"
+      extraConfig: {}
 
   # PostgreSQL database configuration.
   postgresql:

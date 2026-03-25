@@ -20,13 +20,32 @@ spec:
         - name: signal
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --port
+            - {{ .Values.service.port | quote }}
+            - --log-file
+            - console
+            - --log-level
+            - {{ .Values.global.netbird.signal.logLevel | default "info" }}
           env:
             - name: TZ
               value: {{ $.Values.global.timezone | quote }}
           ports:
             - name: signal
-              containerPort: 10000
+              containerPort: {{ .Values.service.port }}
               protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: signal
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+          readinessProbe:
+            tcpSocket:
+              port: signal
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:

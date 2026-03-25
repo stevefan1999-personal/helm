@@ -129,7 +129,7 @@ Create the redirect urls json array
 Create the wait-for-db command
 */}}
 {{- define "netbird.postgresql.enabled" -}}
-{{- or .Values.global.postgresql.external.enabled .Values.global.postgresql.cnpg.enabled -}}
+{{- if or .Values.global.postgresql.external.enabled .Values.global.postgresql.cnpg.enabled -}}true{{- end -}}
 {{- end -}}
 
 {{- define "netbird.postgresql.host" -}}

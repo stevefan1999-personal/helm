@@ -9,3 +9,6 @@ data:
   # Relay-specific configuration
   NB_LISTEN_ADDRESS: "0.0.0.0:{{ .Values.service.port }}"
   NB_EXPOSED_ADDRESS: {{ printf "rels://%s:%v" (include "netbird.relay.fqdn" .) .Values.service.port | quote }}
+  NB_LOG_LEVEL: {{ .Values.logLevel | default "info" | quote }}
+  NB_LOG_FILE: "console"
+  NB_HEALTH_LISTEN_ADDRESS: {{ .Values.healthListenAddress | default ":9000" | quote }}

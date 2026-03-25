@@ -17,11 +17,14 @@ data:
 {{- if $.Values.global.auth.turn.enabled }}
         "TURNConfig": {
             "Turns": {{ include "netbird.turns" . }},
-            "Enabled": {{ $.Values.global.auth.turn.enabled }}
+            "CredentialsTTL": "{{ $.Values.global.auth.turn.credentialsTTL | default "12h" }}",
+            "Secret": "{{ $.Values.global.auth.turn.secret | default "secret" }}",
+            "TimeBasedCredentials": {{ $.Values.global.auth.turn.timeBasedCredentials | default false }}
         },
 {{- end }}
         "Relay": {
             "Addresses": {{ include "netbird.relay.addresses" . }},
+            "CredentialsTTL": "{{ $.Values.global.netbird.relay.credentialsTTL | default "24h" }}",
             "Secret": "{{ $.Values.global.netbird.relay.secret }}"
         },
         "Signal": {
@@ -33,6 +36,8 @@ data:
             "TrustedHTTPProxiesCount": {{ $.Values.global.auth.reverseProxy.trustedHTTPProxiesCount }},
             "TrustedPeers": {{ $.Values.global.auth.reverseProxy.trustedPeers | toJson }}
         },
+        "DisableDefaultPolicy": {{ not $.Values.global.netbird.management.defaultPolicy.enabled }},
+        "DataStoreEncryptionKey": "{{ $.Values.global.netbird.management.dataStoreEncryptionKey }}",
         "StoreConfig": {
             "Engine": {{ include "netbird.store.engine" . | quote }}
         },
@@ -73,6 +78,7 @@ data:
                 "ClientID": "{{ include "netbird.auth.idpManager.clientID" . }}",
                 "ClientSecret": "{{ include "netbird.auth.idpManager.clientSecret" . }}",
                 "GrantType": "{{ $.Values.global.auth.idpManager.clientConfig.grantType }}"
-            }
+            },
+            "ExtraConfig": {{ $.Values.global.auth.idpManager.extraConfig | default dict | toJson }}
         }
     }
