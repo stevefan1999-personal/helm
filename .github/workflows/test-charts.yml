@@ -77,13 +77,21 @@ jobs:
       matrix:
         include:
         - chart: netbird
-          name: netbird
+          name: netbird-cnpg
           namespace: default
           install_cnpg: true
           args: >-
             --set global.netbird.ingress.enabled=false
+        - chart: netbird
+          name: netbird-sqlite
+          namespace: default
+          install_cnpg: false
+          args: >-
+            --set global.netbird.ingress.enabled=false
+            --set global.postgresql.cnpg.enabled=false
+            --set global.postgresql.external.enabled=false
         - chart: netbird-combined
-          name: netbird-combined
+          name: netbird-combined-sqlite
           namespace: netbird
           install_cnpg: false
           args: >-
@@ -93,6 +101,19 @@ jobs:
             --set global.auth.owner.password=TestPass123
             --set global.ingress.enabled=false
             --namespace netbird
+            --create-namespace
+        - chart: netbird-combined
+          name: netbird-combined-cnpg
+          namespace: netbird-cnpg
+          install_cnpg: true
+          args: >-
+            --set global.fqdn=netbird.local
+            --set global.relay.secret=test-secret
+            --set global.auth.owner.email=admin@test.com
+            --set global.auth.owner.password=TestPass123
+            --set global.ingress.enabled=false
+            --set global.postgresql.cnpg.enabled=true
+            --namespace netbird-cnpg
             --create-namespace
     steps:
     - uses: actions/checkout@v4
@@ -120,20 +141,6 @@ jobs:
   deploy-external-postgres:
     needs: [lint, template]
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: netbird
-          POSTGRES_PASSWORD: netbird
-          POSTGRES_DB: netbird
-        ports:
-        - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U netbird"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     strategy:
       fail-fast: false
       matrix:
@@ -145,7 +152,7 @@ jobs:
             --set global.netbird.ingress.enabled=false
             --set global.postgresql.cnpg.enabled=false
             --set global.postgresql.external.enabled=true
-            --set global.postgresql.external.host=postgres
+            --set global.postgresql.external.host=postgres.postgres.svc.cluster.local
             --set global.postgresql.external.port=5432
             --set global.postgresql.external.user=netbird
             --set global.postgresql.external.password=netbird
@@ -161,7 +168,7 @@ jobs:
             --set global.ingress.enabled=false
             --set global.postgresql.cnpg.enabled=false
             --set global.postgresql.external.enabled=true
-            --set global.postgresql.external.host=postgres
+            --set global.postgresql.external.host=postgres.postgres.svc.cluster.local
             --set global.postgresql.external.port=5432
             --set global.postgresql.external.user=netbird
             --set global.postgresql.external.password=netbird
@@ -174,6 +181,16 @@ jobs:
         fetch-depth: 0
     - uses: azure/setup-helm@v4
     - uses: helm/kind-action@v1
+    - name: Deploy PostgreSQL inside kind
+      run: |
+        kubectl create namespace postgres
+        kubectl -n postgres run postgres --image=postgres:16 \
+          --env=POSTGRES_USER=netbird \
+          --env=POSTGRES_PASSWORD=netbird \
+          --env=POSTGRES_DB=netbird \
+          --port=5432
+        kubectl -n postgres expose pod postgres --port=5432 --target-port=5432
+        kubectl -n postgres wait --for=condition=Ready pod/postgres --timeout=120s
     - name: Deploy ${{ matrix.chart }} with external PostgreSQL
       run: helm install ${{ matrix.name }} charts/${{ matrix.chart }} ${{ matrix.args }} --timeout 300s
     - name: Wait for pods
