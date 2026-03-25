@@ -1,0 +1,62 @@
+# Server subchart configuration
+enabled: true
+replicas: 1
+
+image:
+  repository: "netbirdio/netbird-server"
+  tag: "0.67.0"
+  pullPolicy: IfNotPresent
+
+securityContext: {}
+podSecurityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "1000m"
+    memory: "512Mi"
+
+# Listen port inside the container.
+listenPort: 443
+
+# STUN UDP ports. Set to [] to disable embedded STUN.
+stunPorts:
+  - 3478
+
+# Prometheus metrics port.
+metricsPort: 9090
+
+# Health check port.
+healthPort: 9000
+
+# Log level: debug, info, warn, error.
+logLevel: "info"
+
+# Whether to send anonymous usage metrics to NetBird.
+anonymousMetrics:
+  enabled: true
+
+# Whether to auto-update GeoLite2 geolocation databases.
+geoliteUpdate:
+  enabled: false
+
+service:
+  type: ClusterIP
+  port: 443
+
+persistence:
+  enabled: true
+  storageClass: ""
+  size: "1Gi"
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  tls:
+    secretName: ""

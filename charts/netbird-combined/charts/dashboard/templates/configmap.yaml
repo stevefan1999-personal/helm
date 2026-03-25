@@ -1,0 +1,21 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "dashboard.fullname" . }}-config
+  labels:
+    {{- include "dashboard.labels" . | nindent 4 }}
+data:
+  NETBIRD_MGMT_API_ENDPOINT: {{ printf "https://%s" (include "netbird-combined.server.fqdn" .) | quote }}
+  NETBIRD_MGMT_GRPC_API_ENDPOINT: {{ printf "https://%s" (include "netbird-combined.server.fqdn" .) | quote }}
+  AUTH_AUDIENCE: "netbird-dashboard"
+  AUTH_CLIENT_ID: "netbird-dashboard"
+  AUTH_AUTHORITY: {{ include "netbird-combined.auth.issuer" . | quote }}
+  USE_AUTH0: "false"
+  AUTH_SUPPORTED_SCOPES: "openid profile email"
+  NETBIRD_TOKEN_SOURCE: "idToken"
+  AUTH_REDIRECT_URI: ""
+  AUTH_SILENT_REDIRECT_URI: ""
+  # Skip certbot - TLS is handled by ingress/cert-manager
+  LETSENCRYPT_DOMAIN: "none"
+{{- end }}

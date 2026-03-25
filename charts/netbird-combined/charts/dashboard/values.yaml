@@ -1,0 +1,30 @@
+# Dashboard subchart configuration
+enabled: true
+replicas: 1
+
+image:
+  repository: "netbirdio/dashboard"
+  tag: "v2.35.0"
+  pullPolicy: IfNotPresent
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  # Dashboard runs nginx on port 80 internally
+  port: 80
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  tls:
+    secretName: ""

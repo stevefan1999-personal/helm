@@ -1,0 +1,14 @@
+apiVersion: v2
+name: netbird-combined
+description: NetBird combined server - management, signal, relay, and STUN in a single container with embedded IdP
+type: application
+version: 0.1.0
+appVersion: "0.67.0"
+
+dependencies:
+  - name: server
+    version: 0.1.0
+    condition: server.enabled
+  - name: dashboard
+    version: 0.1.0
+    condition: dashboard.enabled

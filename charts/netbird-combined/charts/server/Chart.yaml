@@ -1,0 +1,6 @@
+apiVersion: v2
+name: server
+description: NetBird combined server subchart
+type: application
+version: 0.1.0
+appVersion: "0.67.0"

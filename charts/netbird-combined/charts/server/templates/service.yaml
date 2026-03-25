@@ -1,0 +1,27 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "server.fullname" . }}
+  labels:
+    {{- include "server.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: https
+      protocol: TCP
+      name: https
+    - port: {{ .Values.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- range .Values.stunPorts }}
+    - port: {{ . }}
+      targetPort: stun-{{ . }}
+      protocol: UDP
+      name: stun-{{ . }}
+    {{- end }}
+  selector:
+    {{- include "server.selectorLabels" . | nindent 4 }}
+{{- end }}

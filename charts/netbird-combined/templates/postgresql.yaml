@@ -1,0 +1,9 @@
+{{- if and (not .Values.global.postgresql.external.enabled) .Values.global.postgresql.cnpg.enabled }}
+# CloudNativePG Cluster
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Release.Name }}-postgresql
+spec:
+  {{- toYaml .Values.global.postgresql.cnpg.spec | nindent 2 }}
+{{- end }}

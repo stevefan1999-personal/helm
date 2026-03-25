@@ -1,0 +1,133 @@
+# NetBird Combined Server Helm Chart
+# All services (management, signal, relay, STUN) run in a single container
+# with an embedded IdP (Dex OIDC provider).
+
+global:
+  # Base FQDN for the NetBird instance.
+  fqdn: "netbird.example.com"
+
+  # Ingress settings shared across subcharts.
+  ingress:
+    enabled: true
+    className: "nginx"
+    tls:
+      enabled: false
+      secretName: ""
+    # Default annotations for gRPC streams, WebSocket, and long-lived connections.
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/server-snippets: |
+        grpc_read_timeout 86400s;
+        grpc_send_timeout 86400s;
+
+  # Server ingress host (defaults to global.fqdn if empty).
+  server:
+    ingress:
+      host: ""
+
+  # Dashboard ingress host. Must differ from server host when using same ingress controller.
+  dashboard:
+    ingress:
+      host: ""
+      # Path prefix for dashboard (used when sharing same host as server).
+      # Leave empty for separate host routing.
+      path: "/"
+
+  # Embedded IdP (Dex) auth configuration.
+  auth:
+    # OIDC issuer URL. Defaults to https://<fqdn>/oauth2.
+    issuer: ""
+    # Whether local username/password authentication is enabled.
+    localAuth:
+      enabled: true
+    # Whether to evaluate cache headers for signing key rotation.
+    signKeyRefresh:
+      enabled: false
+    # OAuth2 redirect URIs for the dashboard. Auto-derived from fqdn if empty.
+    dashboardRedirectURIs: []
+    # OAuth2 redirect URIs for the CLI.
+    cliRedirectURIs:
+      - "http://localhost:53000/"
+      - "http://localhost:54000/"
+    # Initial owner account (created on first run).
+    owner:
+      email: ""
+      password: ""
+
+  # Relay auth secret. REQUIRED for embedded relay.
+  relay:
+    secret: ""
+
+  # Store configuration.
+  store:
+    # Engine: "sqlite", "postgres", or "mysql".
+    engine: "sqlite"
+    # Encryption key for the data store. Set explicitly for production.
+    encryptionKey: ""
+
+  # Activity event store (optional, defaults to main store settings).
+  activityStore:
+    engine: ""
+    dsn: ""
+
+  # Auth store for embedded IdP (optional, defaults to sqlite3).
+  authStore:
+    engine: ""
+    dsn: ""
+
+  # Reverse proxy settings.
+  reverseProxy:
+    trustedHTTPProxies: []
+    trustedHTTPProxiesCount: 0
+    trustedPeers:
+      - "0.0.0.0/0"
+
+  # External service overrides.
+  # Setting these DISABLES the corresponding embedded service.
+  stuns: []
+  relays:
+    addresses: []
+    credentialsTTL: ""
+    secret: ""
+  signalUri: ""
+
+  # PostgreSQL database configuration.
+  postgresql:
+    external:
+      enabled: false
+      host: "postgres.example.com"
+      port: 5432
+      user: "postgres"
+      password: ""
+      database: "netbird"
+    cnpg:
+      enabled: false
+      spec:
+        instances: 1
+        postgresql:
+          parameters:
+            max_connections: "100"
+            shared_buffers: "128MB"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        storage:
+          size: "1Gi"
+      backup:
+        enabled: false
+        schedule: "0 3 * * *"
+
+# Server subchart configuration.
+server:
+  enabled: true
+
+# Dashboard subchart configuration.
+dashboard:
+  enabled: true

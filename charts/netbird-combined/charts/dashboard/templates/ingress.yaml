@@ -1,0 +1,43 @@
+{{/*
+Dashboard ingress is only created when the dashboard has a DIFFERENT host than the server.
+When they share the same domain, the parent chart creates a unified path-based ingress.
+*/}}
+{{- if and .Values.enabled .Values.global.ingress.enabled }}
+{{- $serverFqdn := include "netbird-combined.server.fqdn" . -}}
+{{- $dashboardFqdn := include "netbird-combined.dashboard.fqdn" . -}}
+{{- if ne $serverFqdn $dashboardFqdn }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "dashboard.fullname" . }}
+  labels:
+    {{- include "dashboard.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations | default .Values.global.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className | default .Values.global.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.global.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ $dashboardFqdn | quote }}
+      {{- with .Values.ingress.tls.secretName | default .Values.global.ingress.tls.secretName }}
+      secretName: {{ . }}
+      {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ $dashboardFqdn | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "dashboard.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}
+{{- end }}

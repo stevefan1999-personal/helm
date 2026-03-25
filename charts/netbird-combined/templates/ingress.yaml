@@ -1,0 +1,100 @@
+{{- if .Values.global.ingress.enabled }}
+{{- $serverFqdn := include "netbird-combined.server.fqdn" . -}}
+{{- $dashboardFqdn := include "netbird-combined.dashboard.fqdn" . -}}
+{{- $sameDomain := eq $serverFqdn $dashboardFqdn -}}
+
+{{- if $sameDomain }}
+# Unified ingress: server + dashboard on the same domain.
+# Routes API/gRPC/OAuth2/relay/WebSocket to the server, everything else to dashboard.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-netbird
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    {{- with .Values.global.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.global.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.global.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ $serverFqdn | quote }}
+      {{- with .Values.global.ingress.tls.secretName }}
+      secretName: {{ . }}
+      {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ $serverFqdn | quote }}
+      http:
+        paths:
+          # Server: Management REST API
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-server
+                port:
+                  number: {{ .Values.server.service.port | default 443 }}
+          # Server: Embedded IdP (Dex OIDC)
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-server
+                port:
+                  number: {{ .Values.server.service.port | default 443 }}
+          # Server: Device auth callback
+          - path: /device
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-server
+                port:
+                  number: {{ .Values.server.service.port | default 443 }}
+          # Server: Relay WebSocket
+          - path: /relay
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-server
+                port:
+                  number: {{ .Values.server.service.port | default 443 }}
+          # Server: WebSocket proxy (signal + management gRPC via WS)
+          - path: /ws-proxy
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-server
+                port:
+                  number: {{ .Values.server.service.port | default 443 }}
+          # Server: Native gRPC - Signal
+          - path: /signalexchange.SignalExchange
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-server
+                port:
+                  number: {{ .Values.server.service.port | default 443 }}
+          # Server: Native gRPC - Management
+          - path: /management.ManagementService
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-server
+                port:
+                  number: {{ .Values.server.service.port | default 443 }}
+          # Dashboard: catch-all (must be last)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-dashboard
+                port:
+                  number: {{ .Values.dashboard.service.port | default 80 }}
+{{- end }}
+{{- end }}

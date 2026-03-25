@@ -1,0 +1,13 @@
+NetBird Combined Server deployed!
+
+Server: https://{{ include "netbird-combined.server.fqdn" . }}
+{{- if .Values.dashboard.enabled }}
+Dashboard: https://{{ include "netbird-combined.dashboard.fqdn" . }}
+{{- end }}
+
+Components:
+  - Management API + Signal + Relay (multiplexed on single port)
+  - Embedded IdP (Dex OIDC at {{ include "netbird-combined.auth.issuer" . }})
+{{- if .Values.dashboard.enabled }}
+  - Dashboard
+{{- end }}
