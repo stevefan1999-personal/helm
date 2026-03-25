@@ -11,7 +11,8 @@ securityContext: {}
 
 service:
   type: ClusterIP
-  port: 3000
+  # Dashboard v2.35.0+ runs nginx on port 80
+  port: 80
 
 resources:
   requests:

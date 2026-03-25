@@ -19,3 +19,5 @@ data:
   NETBIRD_TOKEN_SOURCE: {{ $.Values.global.auth.tokenSource | quote }}
   AUTH_REDIRECT_URI: ""
   AUTH_SILENT_REDIRECT_URI: ""
+  # Skip certbot - TLS is handled by ingress/cert-manager
+  LETSENCRYPT_DOMAIN: "none"
