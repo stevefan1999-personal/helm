@@ -3,6 +3,33 @@ entries:
   netbird:
   - apiVersion: v2
     appVersion: 0.67.0
+    created: "2026-03-25T09:02:04.070808266Z"
+    dependencies:
+    - condition: dashboard.enabled
+      name: dashboard
+      repository: ""
+      version: 0.2.1
+    - condition: management.enabled
+      name: management
+      repository: ""
+      version: 0.2.1
+    - condition: signal.enabled
+      name: signal
+      repository: ""
+      version: 0.2.1
+    - condition: relay.enabled
+      name: relay
+      repository: ""
+      version: 0.2.1
+    description: A Helm chart for NetBird
+    digest: 5a4926791e0618b3cb620e2e39690153f23c6676f5858c8334d3ba0b9d1dbdbf
+    name: netbird
+    type: application
+    urls:
+    - https://github.com/stevefan1999-personal/helm/releases/download/netbird-0.2.1/netbird-0.2.1.tgz
+    version: 0.2.1
+  - apiVersion: v2
+    appVersion: 0.67.0
     created: "2026-03-25T08:54:11.724549326Z"
     dependencies:
     - condition: dashboard.enabled
@@ -111,4 +138,4 @@ entries:
     urls:
     - https://github.com/stevefan1999-personal/helm/releases/download/netbird-combined-0.1.0/netbird-combined-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-25T08:54:11.853380414Z"
+generated: "2026-03-25T09:02:04.070863097Z"
