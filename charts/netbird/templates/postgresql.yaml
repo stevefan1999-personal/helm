@@ -15,6 +15,7 @@ kind: Cluster
 metadata:
   name: {{ .Release.Name }}-postgresql
 spec:
+  enableSuperuserAccess: true
   superuserSecret:
     name: {{ .Release.Name }}-postgresql-superuser
   {{- toYaml .Values.global.postgresql.cnpg.spec | nindent 2 }}
