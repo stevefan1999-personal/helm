@@ -37,7 +37,7 @@ data:
             "TrustedPeers": {{ $.Values.global.auth.reverseProxy.trustedPeers | toJson }}
         },
         "DisableDefaultPolicy": {{ not $.Values.global.netbird.management.defaultPolicy.enabled }},
-        "DataStoreEncryptionKey": "{{ $.Values.global.netbird.management.dataStoreEncryptionKey | default (randBytes 32 | b64enc) }}",
+        "DataStoreEncryptionKey": "{{ $.Values.global.netbird.management.dataStoreEncryptionKey | default (randBytes 32) }}",
         "StoreConfig": {
             "Engine": {{ include "netbird.store.engine" . | quote }}
         },
