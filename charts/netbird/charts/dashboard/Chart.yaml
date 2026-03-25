@@ -3,4 +3,4 @@ name: dashboard
 description: NetBird Dashboard Subchart
 type: application
 version: 0.1.1
-appVersion: "2.14.0"
+appVersion: "2.35.0"

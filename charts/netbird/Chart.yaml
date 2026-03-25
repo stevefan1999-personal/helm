@@ -3,7 +3,7 @@ name: netbird
 description: A Helm chart for NetBird
 type: application
 version: 0.1.1
-appVersion: "0.50.1"
+appVersion: "0.67.0"
 dependencies:
 - name: dashboard
   version: "0.1.1"
