@@ -1,0 +1,141 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tuwunel-juicefs-s3-data
+  labels:
+    app.kubernetes.io/name: tuwunel-juicefs-s3
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tuwunel-juicefs-s3
+stringData:
+  MINIO_ROOT_USER: minioadmin
+  MINIO_ROOT_PASSWORD: minioadmin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tuwunel-juicefs-s3
+  labels:
+    app.kubernetes.io/name: tuwunel-juicefs-s3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tuwunel-juicefs-s3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tuwunel-juicefs-s3
+    spec:
+      initContainers:
+        - name: format
+          image: juicedata/mount:ce-v1.3.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              mkdir -p /data/objects
+              if [ ! -f /data/juicefs.db ]; then
+                juicefs format --storage file --bucket /data/objects sqlite3:///data/juicefs.db tuwunel-media
+              else
+                echo "Reusing existing JuiceFS metadata at /data/juicefs.db"
+              fi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      containers:
+        - name: gateway
+          image: juicedata/mount:ce-v1.3.0
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: tuwunel-juicefs-s3
+          command:
+            - sh
+            - -ec
+            - juicefs gateway --multi-buckets sqlite3:///data/juicefs.db 0.0.0.0:9000
+          ports:
+            - name: s3
+              containerPort: 9000
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: s3
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: s3
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: tuwunel-juicefs-s3-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tuwunel-juicefs-s3
+  labels:
+    app.kubernetes.io/name: tuwunel-juicefs-s3
+spec:
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: s3
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: tuwunel-juicefs-s3
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tuwunel-juicefs-create-bucket
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-bucket
+          image: amazon/aws-cli:2.24.13
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tuwunel-juicefs-s3
+                  key: MINIO_ROOT_USER
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tuwunel-juicefs-s3
+                  key: MINIO_ROOT_PASSWORD
+            - name: AWS_EC2_METADATA_DISABLED
+              value: "true"
+          command:
+            - sh
+            - -ec
+            - |
+              until aws --endpoint-url http://tuwunel-juicefs-s3:9000 s3 ls >/dev/null 2>&1; do
+                sleep 2
+              done
+              aws --endpoint-url http://tuwunel-juicefs-s3:9000 s3 mb s3://matrix-media || true
+              aws --endpoint-url http://tuwunel-juicefs-s3:9000 s3 ls s3://matrix-media

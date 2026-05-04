@@ -1,0 +1,198 @@
+{{- if gt (int .Values.replicaCount) 1 }}{{ fail "Tuwunel does not support horizontal scaling; set replicaCount to 1." }}{{- end }}
+{{- if and .Values.registration.enabled (not .Values.registration.openRegistration) (not .Values.registration.token) }}{{ fail "registration.enabled=true requires registration.token unless registration.openRegistration=true." }}{{- end }}
+{{- if and .Values.jwt.enabled (not .Values.jwt.key) }}{{ fail "jwt.enabled=true requires jwt.key." }}{{- end }}
+{{- if and .Values.oidc.enabled (empty .Values.oidc.providers) }}{{ fail "oidc.enabled=true requires at least one oidc.providers entry." }}{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tuwunel.fullname" . }}-config
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+data:
+  tuwunel.toml: |
+    [global]
+    server_name = {{ .Values.serverName | quote }}
+    database_path = {{ .Values.config.databasePath | quote }}
+    address = {{ .Values.config.address | quote }}
+    port = {{ .Values.config.port | int }}
+    log = {{ .Values.config.log | quote }}
+    allow_federation = {{ .Values.config.allowFederation }}
+    allow_legacy_media = {{ .Values.config.allowLegacyMedia }}
+    trusted_servers = {{ .Values.config.trustedServers | toJson }}
+    max_request_size = {{ .Values.config.maxRequestSize | toJson }}
+    turn_allow_guests = {{ .Values.turn.allowGuests }}
+    {{- if .Values.config.ipSource }}
+    ip_source = {{ .Values.config.ipSource | quote }}
+    {{- end }}
+    {{- if .Values.registration.enabled }}
+    allow_registration = true
+    yes_i_am_very_very_sure_i_want_an_open_registration_server_prone_to_abuse = {{ .Values.registration.openRegistration }}
+    {{- if .Values.registration.token }}
+    registration_token_file = "/etc/tuwunel/secrets/registration_token"
+    {{- end }}
+    {{- else }}
+    allow_registration = false
+    {{- end }}
+    {{- if .Values.turn.username }}
+    turn_username = {{ .Values.turn.username | quote }}
+    {{- end }}
+    {{- if .Values.turn.password }}
+    turn_password = {{ .Values.turn.password | quote }}
+    {{- end }}
+    {{- if .Values.turn.secret }}
+    turn_secret_file = "/etc/tuwunel/secrets/turn_secret"
+    {{- end }}
+    {{- if .Values.turn.uris }}
+    turn_uris = {{ .Values.turn.uris | toJson }}
+    {{- end }}
+    turn_ttl = {{ .Values.turn.ttl | int }}
+    {{- if .Values.mediaStorage.s3.enabled }}
+    {{- $provider := .Values.mediaStorage.s3.providerName }}
+    {{- if .Values.mediaStorage.s3.includeLocalFallback }}
+    media_storage_providers = {{ list "media" $provider | toJson }}
+    store_media_on_providers = {{ list $provider | toJson }}
+    {{- else }}
+    media_storage_providers = {{ list $provider | toJson }}
+    store_media_on_providers = []
+    {{- end }}
+    {{- end }}
+    {{- if .Values.oidc.enabled }}
+    single_sso = {{ .Values.oidc.singleSso }}
+    sso_custom_providers_page = {{ .Values.oidc.ssoCustomProvidersPage }}
+    oidc_aware_preferred = {{ .Values.oidc.oidcAwarePreferred }}
+    {{- end }}
+    {{- range $key, $value := .Values.config.additionalGlobal }}
+    {{ $key }} = {{ $value | toJson }}
+    {{- end }}
+
+    [global.well_known]
+    client = {{ include "tuwunel.wellKnownClient" . | quote }}
+    server = {{ include "tuwunel.wellKnownServer" . | quote }}
+    {{- if .Values.wellKnown.supportPage }}
+    support_page = {{ .Values.wellKnown.supportPage | quote }}
+    {{- end }}
+    {{- if .Values.wellKnown.supportRole }}
+    support_role = {{ .Values.wellKnown.supportRole | quote }}
+    {{- end }}
+    {{- if .Values.wellKnown.supportEmail }}
+    support_email = {{ .Values.wellKnown.supportEmail | quote }}
+    {{- end }}
+    {{- if .Values.wellKnown.supportMxid }}
+    support_mxid = {{ .Values.wellKnown.supportMxid | quote }}
+    {{- end }}
+    {{- $livekitUrl := include "tuwunel.livekitAdvertisedUrl" . }}
+    {{- if $livekitUrl }}
+    livekit_url = {{ $livekitUrl | quote }}
+    {{- end }}
+    {{- range .Values.wellKnown.rtcTransports }}
+    [[global.well_known.rtc_transports]]
+    {{- range $key, $value := . }}
+    {{ $key }} = {{ $value | toJson }}
+    {{- end }}
+    {{- end }}
+
+    {{- if .Values.jwt.enabled }}
+    [global.jwt]
+    enable = true
+    format = {{ .Values.jwt.format | quote }}
+    algorithm = {{ .Values.jwt.algorithm | quote }}
+    register_user = {{ .Values.jwt.registerUser }}
+    {{- end }}
+
+    {{- if .Values.mediaStorage.s3.enabled }}
+    {{- $s3Endpoint := include "tuwunel.s3Endpoint" . }}
+    [global.storage_provider.{{ .Values.mediaStorage.s3.providerName }}.s3]
+    bucket = {{ .Values.mediaStorage.s3.bucket | quote }}
+    region = {{ .Values.mediaStorage.s3.region | quote }}
+    {{- if $s3Endpoint }}
+    endpoint = {{ $s3Endpoint | quote }}
+    {{- end }}
+    {{- if .Values.mediaStorage.s3.basePath }}
+    base_path = {{ .Values.mediaStorage.s3.basePath | quote }}
+    {{- end }}
+    use_vhost_request = {{ .Values.mediaStorage.s3.useVhostRequest }}
+    use_https = {{ .Values.mediaStorage.s3.useHttps }}
+    startup_check = {{ .Values.mediaStorage.s3.startupCheck }}
+    multipart_threshold = {{ .Values.mediaStorage.s3.multipartThreshold | quote }}
+    multipart_part_size = {{ .Values.mediaStorage.s3.multipartPartSize | quote }}
+    {{- end }}
+
+    {{- if .Values.oidc.enabled }}
+    {{- range $i, $provider := .Values.oidc.providers }}
+    {{- if not $provider.clientId }}{{ fail (printf "oidc.providers[%d].clientId is required" $i) }}{{- end }}
+    {{- if not $provider.brand }}{{ fail (printf "oidc.providers[%d].brand is required" $i) }}{{- end }}
+    {{- if and (not $provider.clientSecret) (not $provider.clientSecretFile) }}{{ fail (printf "oidc.providers[%d] requires clientSecret or clientSecretFile" $i) }}{{- end }}
+    [[global.identity_provider]]
+    brand = {{ $provider.brand | quote }}
+    client_id = {{ $provider.clientId | quote }}
+    {{- if $provider.clientSecretFile }}
+    client_secret_file = {{ $provider.clientSecretFile | quote }}
+    {{- else }}
+    client_secret_file = {{ printf "/etc/tuwunel/secrets/idp-%d-client-secret" $i | quote }}
+    {{- end }}
+    {{- if $provider.issuerUrl }}
+    issuer_url = {{ $provider.issuerUrl | quote }}
+    {{- end }}
+    {{- if $provider.callbackUrl }}
+    callback_url = {{ $provider.callbackUrl | quote }}
+    {{- end }}
+    {{- if hasKey $provider "default" }}
+    default = {{ $provider.default }}
+    {{- end }}
+    {{- if $provider.name }}
+    name = {{ $provider.name | quote }}
+    {{- end }}
+    {{- if $provider.icon }}
+    icon = {{ $provider.icon | quote }}
+    {{- end }}
+    {{- if $provider.scope }}
+    scope = {{ $provider.scope | toJson }}
+    {{- end }}
+    {{- if $provider.useridClaims }}
+    userid_claims = {{ $provider.useridClaims | toJson }}
+    {{- end }}
+    {{- if hasKey $provider "trusted" }}
+    trusted = {{ $provider.trusted }}
+    {{- end }}
+    {{- if hasKey $provider "uniqueIdFallbacks" }}
+    unique_id_fallbacks = {{ $provider.uniqueIdFallbacks }}
+    {{- end }}
+    {{- if hasKey $provider "registration" }}
+    registration = {{ $provider.registration }}
+    {{- end }}
+    {{- if $provider.basePath }}
+    base_path = {{ $provider.basePath | quote }}
+    {{- end }}
+    {{- if $provider.discoveryUrl }}
+    discovery_url = {{ $provider.discoveryUrl | quote }}
+    {{- end }}
+    {{- if $provider.authorizationUrl }}
+    authorization_url = {{ $provider.authorizationUrl | quote }}
+    {{- end }}
+    {{- if $provider.tokenUrl }}
+    token_url = {{ $provider.tokenUrl | quote }}
+    {{- end }}
+    {{- if $provider.revocationUrl }}
+    revocation_url = {{ $provider.revocationUrl | quote }}
+    {{- end }}
+    {{- if $provider.introspectionUrl }}
+    introspection_url = {{ $provider.introspectionUrl | quote }}
+    {{- end }}
+    {{- if $provider.userinfoUrl }}
+    userinfo_url = {{ $provider.userinfoUrl | quote }}
+    {{- end }}
+    {{- if hasKey $provider "discovery" }}
+    discovery = {{ $provider.discovery }}
+    {{- end }}
+    {{- if $provider.grantSessionDuration }}
+    grant_session_duration = {{ $provider.grantSessionDuration | int }}
+    {{- end }}
+    {{- if hasKey $provider "checkCookie" }}
+    check_cookie = {{ $provider.checkCookie }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+
+    {{- if .Values.config.extraToml }}
+    {{ .Values.config.extraToml | nindent 4 }}
+    {{- end }}

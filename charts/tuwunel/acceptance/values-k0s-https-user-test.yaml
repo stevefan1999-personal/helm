@@ -1,0 +1,106 @@
+# Browser user-test overlay for calling from another LAN machine.
+# The ingress-nginx controller runs with hostNetwork and exposes HTTPS on
+# the node's standard port 443 in the local k0s cluster. A cert-manager Certificate named tuwunel-lan-ip-tls supplies TLS for
+# the nip.io-style test host.
+serverName: tuwunel.192-168-2-190.nip.io
+publicUrl: https://tuwunel.192-168-2-190.nip.io
+
+config:
+  additionalGlobal:
+    url_preview_domain_explicit_allowlist:
+      - github.com
+      - matrix-construct.github.io
+
+livekit:
+  enabled: true
+  host: tuwunel.192-168-2-190.nip.io
+  publicUrl: https://tuwunel.192-168-2-190.nip.io
+  livekitUrl: wss://tuwunel.192-168-2-190.nip.io
+  fullAccessHomeservers: tuwunel.192-168-2-190.nip.io
+  livekitServer:
+    # LiveKit needs directly reachable ICE ports. For the single-node k0s user
+    # test, host networking makes the advertised LAN node IP usable by browsers.
+    hostNetwork: true
+
+  jwtService:
+    extraEnv:
+      - name: LIVEKIT_INSECURE_SKIP_VERIFY_TLS
+        value: YES_I_KNOW_WHAT_I_AM_DOING
+      - name: SSL_CERT_FILE
+        value: /etc/tuwunel-local-ca/ca.crt
+    hostAliases:
+      - ip: 192.168.2.190
+        hostnames:
+          - tuwunel.192-168-2-190.nip.io
+    extraVolumes:
+      - name: tuwunel-local-ca
+        secret:
+          secretName: tuwunel-local-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+    extraVolumeMounts:
+      - name: tuwunel-local-ca
+        mountPath: /etc/tuwunel-local-ca
+        readOnly: true
+  rtc:
+    nodeIp: 192.168.2.190
+    udpPort: 7882
+    useExternalIP: false
+    enableLoopbackCandidate: true
+  ingress:
+    enabled: true
+    className: nginx
+    jwtPaths:
+      - path: /sfu/get
+        pathType: Prefix
+      - path: /healthz
+        pathType: Prefix
+    serverPaths:
+      - path: /rtc
+        pathType: Prefix
+      - path: /twirp
+        pathType: Prefix
+    tls:
+      enabled: true
+      secretName: tuwunel-lan-ip-tls
+
+cinny:
+  enabled: true
+  publicUrl: https://tuwunel.192-168-2-190.nip.io
+  config:
+    defaultHomeserver: 0
+    homeserverList:
+      - https://tuwunel.192-168-2-190.nip.io
+    compatibility:
+      useBaseUrlForAuthenticatedDiscovery: true
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: tuwunel.192-168-2-190.nip.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      enabled: true
+      secretName: tuwunel-lan-ip-tls
+  homeserverProxy:
+    enabled: true
+    upstream: http://tuwunel:8008
+    livekitJwt:
+      enabled: true
+      upstream: http://tuwunel-livekit-jwt:8081
+    ingress:
+      enabled: true
+      className: nginx
+      hosts:
+        - host: tuwunel.192-168-2-190.nip.io
+          paths:
+            - path: /_matrix
+              pathType: Prefix
+            - path: /.well-known
+              pathType: Prefix
+      tls:
+        enabled: true
+        secretName: tuwunel-lan-ip-tls

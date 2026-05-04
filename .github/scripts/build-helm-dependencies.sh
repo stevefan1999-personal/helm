@@ -8,6 +8,7 @@ charts=(
   charts/netbird/charts/proxy
   charts/netbird
   charts/netbird-combined
+  charts/tuwunel
 )
 
 for chart in "${charts[@]}"; do

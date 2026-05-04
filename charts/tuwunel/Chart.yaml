@@ -1,0 +1,26 @@
+apiVersion: v2
+name: tuwunel
+description: A Helm chart for deploying the Tuwunel Matrix homeserver.
+type: application
+version: 0.1.0
+appVersion: "latest"
+home: https://github.com/matrix-construct/tuwunel
+sources:
+  - https://github.com/matrix-construct/tuwunel
+keywords:
+  - matrix
+  - homeserver
+  - tuwunel
+  - oidc
+  - livekit
+maintainers:
+  - name: stevefan1999-personal
+dependencies:
+  - name: livekit
+    version: 0.1.0
+    repository: file://charts/livekit
+    condition: livekit.enabled
+  - name: cinny
+    version: 0.1.0
+    repository: file://charts/cinny
+    condition: cinny.enabled

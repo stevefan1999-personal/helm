@@ -1,0 +1,9 @@
+dependencies:
+- name: livekit
+  repository: file://charts/livekit
+  version: 0.1.0
+- name: cinny
+  repository: file://charts/cinny
+  version: 0.1.0
+digest: sha256:ae2acfdbdc45e87cd360a79ce5c05ad22895dd4ed3d3fbf1ba0baee2b82d878c
+generated: "2026-05-04T09:14:17.030993906+08:00"

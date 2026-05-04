@@ -1,0 +1,33 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "livekit.fullname" . }}-config
+  labels:
+    {{- include "livekit.labels" . | nindent 4 }}
+data:
+  livekit.yaml: |
+    port: {{ .Values.livekitServer.service.httpPort | int }}
+    bind_addresses:
+      - ""
+    rtc:
+      {{- with .Values.rtc.nodeIp }}
+      node_ip: {{ . | quote }}
+      {{- end }}
+      tcp_port: {{ .Values.livekitServer.service.tcpPort | int }}
+      {{- if .Values.rtc.udpPort }}
+      udp_port: {{ .Values.rtc.udpPort | int }}
+      {{- else }}
+      port_range_start: {{ .Values.rtc.portRangeStart | int }}
+      port_range_end: {{ .Values.rtc.portRangeEnd | int }}
+      {{- end }}
+      use_external_ip: {{ .Values.rtc.useExternalIP }}
+      enable_loopback_candidate: {{ .Values.rtc.enableLoopbackCandidate }}
+    room:
+      auto_create: {{ .Values.room.autoCreate }}
+    keys:
+      {{ .Values.apiKey | quote }}: {{ .Values.apiSecret | quote }}
+    {{- with .Values.extraConfig }}
+    {{ . | nindent 4 }}
+    {{- end }}
+{{- end }}

@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        chart: [netbird, netbird-combined]
+        chart: [netbird, netbird-combined, tuwunel]
     steps:
     - uses: actions/checkout@v4
       with:
@@ -39,6 +39,7 @@ jobs:
       run: |
         helm unittest charts/netbird
         helm unittest charts/netbird-combined
+        helm unittest charts/tuwunel
 
   template:
     runs-on: ubuntu-latest
@@ -87,6 +88,13 @@ jobs:
           name: proxy
           args: >-
             --set proxy.enabled=true
+        - chart: tuwunel
+          name: default
+          args: ""
+        - chart: tuwunel
+          name: k0s-acceptance
+          args: >-
+            -f charts/tuwunel/acceptance/values-k0s.yaml
     steps:
     - uses: actions/checkout@v4
       with:

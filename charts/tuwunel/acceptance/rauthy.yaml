@@ -1,0 +1,251 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tuwunel-rauthy-bootstrap
+  labels:
+    app.kubernetes.io/name: tuwunel-rauthy
+data:
+  clients.json: |
+    [
+      {
+        "id": "tuwunel-acceptance",
+        "name": "Tuwunel Acceptance",
+        "secret": {
+          "Plain": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "redirect_uris": [
+          "http://tuwunel:8008/_matrix/client/unstable/login/sso/callback/tuwunel-acceptance"
+        ],
+        "post_logout_redirect_uris": [
+          "http://tuwunel:8008/"
+        ],
+        "allowed_origins": [
+          "http://tuwunel:8008"
+        ],
+        "enabled": true,
+        "flows_enabled": [
+          "authorization_code",
+          "refresh_token"
+        ],
+        "access_token_alg": "RS256",
+        "id_token_alg": "RS256",
+        "auth_code_lifetime": 300,
+        "access_token_lifetime": 1800,
+        "scopes": [
+          "openid",
+          "profile",
+          "email",
+          "groups"
+        ],
+        "default_scopes": [
+          "openid",
+          "profile",
+          "email"
+        ],
+        "challenges": [
+          "S256"
+        ],
+        "force_mfa": false,
+        "client_uri": "http://tuwunel:8008"
+      }
+    ]
+  users.json: |
+    [
+      {
+        "email": "oidc-user@tuwunel.192-168-2-190.nip.io",
+        "preferred_username": "oidcuser",
+        "given_name": "OIDC",
+        "family_name": "User",
+        "language": "en",
+        "password": {
+          "Plain": "RauthyAcceptancePassword1!"
+        },
+        "roles": [
+          "user"
+        ],
+        "groups": [
+          "user"
+        ],
+        "enabled": true,
+        "email_verified": true
+      }
+    ]
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tuwunel-rauthy-config
+  labels:
+    app.kubernetes.io/name: tuwunel-rauthy
+type: Opaque
+stringData:
+  config.toml: |
+    [access]
+    cookie_mode = "danger-insecure"
+    cookie_set_path = true
+
+    [bootstrap]
+    admin_email = "admin@tuwunel.192-168-2-190.nip.io"
+    password_plain = "RauthyAdminPassword1!"
+    bootstrap_dir = "/app/bootstrap"
+
+    [cluster]
+    node_id = 1
+    nodes = ["1 localhost:8100 localhost:8200"]
+    secret_raft = "AcceptanceRaftSecret1337"
+    secret_api = "AcceptanceApiSecret1337"
+
+    [dev]
+    insecure_cookie = true
+
+    [email]
+    # Leave smtp_url unset so Rauthy uses its test/debug mail sink in E2E.
+    smtp_from = "Rauthy <rauthy@tuwunel.192-168-2-190.nip.io>"
+
+    [encryption]
+    keys = ["test01/MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="]
+    key_active = "test01"
+
+    [hashing]
+    argon2_m_cost = 32768
+    argon2_t_cost = 1
+    argon2_p_cost = 2
+    max_hash_threads = 1
+
+    [pow]
+    difficulty = 4
+    exp = 300
+
+    [server]
+    scheme = "http"
+    pub_url = "tuwunel-rauthy:8080"
+    proxy_mode = false
+
+    [webauthn]
+    rp_id = "tuwunel-rauthy"
+    rp_origin = "http://tuwunel-rauthy:8080"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tuwunel-rauthy
+  labels:
+    app.kubernetes.io/name: tuwunel-rauthy
+spec:
+  selector:
+    app.kubernetes.io/name: tuwunel-rauthy
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tuwunel-rauthy-headless
+  labels:
+    app.kubernetes.io/name: tuwunel-rauthy
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: tuwunel-rauthy
+  ports:
+    - name: hiqlite-raft
+      port: 8100
+      targetPort: hiqlite-raft
+      protocol: TCP
+    - name: hiqlite-api
+      port: 8200
+      targetPort: hiqlite-api
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tuwunel-rauthy
+  labels:
+    app.kubernetes.io/name: tuwunel-rauthy
+spec:
+  serviceName: tuwunel-rauthy-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tuwunel-rauthy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tuwunel-rauthy
+    spec:
+      securityContext:
+        fsGroup: 10001
+      containers:
+        - name: rauthy
+          image: ghcr.io/sebadob/rauthy:0.35.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            runAsUser: 10001
+            runAsGroup: 10001
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+          ports:
+            - name: hiqlite-raft
+              containerPort: 8100
+              protocol: TCP
+            - name: hiqlite-api
+              containerPort: 8200
+              protocol: TCP
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: hiqlite-api
+            initialDelaySeconds: 5
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /auth/v1/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: rauthy-data
+              mountPath: /app/data
+            - name: rauthy-config
+              mountPath: /app/config.toml
+              subPath: config.toml
+              readOnly: true
+            - name: rauthy-bootstrap
+              mountPath: /app/bootstrap
+              readOnly: true
+      volumes:
+        - name: rauthy-config
+          secret:
+            secretName: tuwunel-rauthy-config
+        - name: rauthy-bootstrap
+          configMap:
+            name: tuwunel-rauthy-bootstrap
+  volumeClaimTemplates:
+    - metadata:
+        name: rauthy-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi

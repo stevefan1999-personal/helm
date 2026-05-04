@@ -1,0 +1,16 @@
+{{- if and .Values.enabled .Values.config.create }}
+{{- $homeservers := .Values.config.homeserverList | default (list "matrix.org") }}
+{{- $config := dict "defaultHomeserver" (int .Values.config.defaultHomeserver) "homeserverList" $homeservers "allowCustomHomeservers" .Values.config.allowCustomHomeservers "featuredCommunities" .Values.config.featuredCommunities "hashRouter" .Values.config.hashRouter }}
+{{- with .Values.config.extraConfig }}
+{{- $config = mergeOverwrite $config . }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cinny.configMapName" . }}
+  labels:
+    {{- include "cinny.labels" . | nindent 4 }}
+data:
+  config.json: |
+    {{- $config | toPrettyJson | nindent 4 }}
+{{- end }}

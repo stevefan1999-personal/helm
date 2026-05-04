@@ -1,0 +1,37 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cinny.fullname" . }}-nginx
+  labels:
+    {{- include "cinny.labels" . | nindent 4 }}
+data:
+  default.conf: |
+    server {
+      listen 80;
+      listen [::]:80;
+
+      root /usr/share/nginx/html;
+
+      {{- if .Values.config.compatibility.useBaseUrlForAuthenticatedDiscovery }}
+      # Local/self-hosted compatibility: preserve MatrixRTC .well-known data
+      # when the Matrix user-id domain is not the externally reachable base URL.
+      sub_filter_types application/javascript text/javascript;
+      sub_filter_once off;
+      sub_filter 'return W6(fetch,s??t)' 'return W6(fetch,e)';
+      {{- end }}
+
+      location / {
+        rewrite ^/config.json$ /config.json break;
+        rewrite ^/manifest.json$ /manifest.json break;
+
+        rewrite ^/sw.js$ /sw.js break;
+        rewrite ^/pdf.worker.min.js$ /pdf.worker.min.js break;
+
+        rewrite ^/public/(.*)$ /public/$1 break;
+        rewrite ^/assets/(.*)$ /assets/$1 break;
+
+        rewrite ^(.+)$ /index.html break;
+      }
+    }
+{{- end }}

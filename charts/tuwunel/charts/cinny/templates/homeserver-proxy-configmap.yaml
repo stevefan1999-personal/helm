@@ -1,0 +1,39 @@
+{{- if and .Values.enabled .Values.homeserverProxy.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cinny.homeserverProxyName" . }}
+  labels:
+    {{- include "cinny.homeserverProxyLabels" . | nindent 4 }}
+data:
+  default.conf: |
+    server {
+      listen 8080;
+      server_name _;
+
+      proxy_http_version 1.1;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+      {{- if .Values.homeserverProxy.rewriteAuthenticatedMedia }}
+      location ~ ^/_matrix/client/v1/media/(download|thumbnail)/(.*)$ {
+        proxy_pass {{ .Values.homeserverProxy.upstream }}/_matrix/media/v3/$1/$2$is_args$args;
+      }
+      {{- end }}
+
+      {{- if .Values.homeserverProxy.livekitJwt.enabled }}
+      location = /sfu/get {
+        proxy_pass {{ .Values.homeserverProxy.livekitJwt.upstream }}/sfu/get$is_args$args;
+      }
+
+      location = /healthz {
+        proxy_pass {{ .Values.homeserverProxy.livekitJwt.upstream }}/healthz;
+      }
+      {{- end }}
+
+      location / {
+        proxy_pass {{ .Values.homeserverProxy.upstream }};
+      }
+    }
+{{- end }}

@@ -1,0 +1,75 @@
+serverName: tuwunel.192-168-2-190.nip.io
+publicUrl: http://tuwunel.192-168-2-190.nip.io
+
+persistence:
+  enabled: true
+  size: 2Gi
+
+registration:
+  enabled: true
+  token: acceptance-token
+
+config:
+  log: info
+  allowFederation: false
+  allowLegacyMedia: true
+  trustedServers: []
+
+mediaStorage:
+  s3:
+    enabled: true
+    providerName: media_on_s3
+    includeLocalFallback: true
+    bucket: matrix-media
+    region: us-east-1
+    endpoint: http://tuwunel-juicefs-s3:9000
+    accessKey: minioadmin
+    secretKey: minioadmin
+    useVhostRequest: false
+    useHttps: false
+    startupCheck: false
+
+oidc:
+  enabled: true
+  oidcAwarePreferred: true
+  providers:
+    - brand: Rauthy
+      name: Acceptance Rauthy
+      clientId: tuwunel-acceptance
+      clientSecret: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      issuerUrl: http://tuwunel-rauthy:8080/auth/v1/
+      callbackUrl: http://tuwunel:8008/_matrix/client/unstable/login/sso/callback/tuwunel-acceptance
+      default: true
+      trusted: true
+      registration: true
+      uniqueIdFallbacks: false
+      checkCookie: false
+      useridClaims:
+        - preferred_username
+      scope:
+        - openid
+        - profile
+        - email
+
+livekit:
+  enabled: true
+  host: tuwunel.192-168-2-190.nip.io
+  publicUrl: http://tuwunel.192-168-2-190.nip.io
+  livekitUrl: ws://tuwunel.192-168-2-190.nip.io
+  fullAccessHomeservers: tuwunel.192-168-2-190.nip.io
+  apiKey: acceptance-livekit-key
+  apiSecret: acceptance-livekit-secret-acceptance-livekit-secret-acceptance-livekit-secret
+  rtc:
+    useExternalIP: false
+    enableLoopbackCandidate: true
+
+cinny:
+  enabled: true
+  publicUrl: http://tuwunel.192-168-2-190.nip.io
+  config:
+    allowCustomHomeservers: false
+    compatibility:
+      useBaseUrlForAuthenticatedDiscovery: true
+
+tests:
+  enabled: true

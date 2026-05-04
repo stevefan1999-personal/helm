@@ -1,0 +1,14 @@
+apiVersion: v2
+name: livekit
+description: Experimental LiveKit and lk-jwt-service subchart for Tuwunel MatrixRTC.
+type: application
+version: 0.1.0
+appVersion: "latest"
+home: https://livekit.io/
+sources:
+  - https://github.com/livekit/livekit
+  - https://github.com/element-hq/lk-jwt-service
+keywords:
+  - livekit
+  - matrixrtc
+  - element-call

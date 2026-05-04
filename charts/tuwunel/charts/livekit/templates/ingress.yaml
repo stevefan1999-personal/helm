@@ -1,0 +1,51 @@
+{{- if and .Values.enabled .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "livekit.fullname" . }}
+  labels:
+    {{- include "livekit.labels" . | nindent 4 }}
+  {{- if or .Values.certManager.enabled .Values.ingress.annotations }}
+  annotations:
+    {{- include "livekit.certManagerAnnotations" . | nindent 4 }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - {{- if .Values.host }}
+      hosts:
+        - {{ .Values.host | quote }}
+      {{- end }}
+      secretName: {{ default (printf "%s-tls" (include "livekit.fullname" .)) .Values.ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - {{- if .Values.host }}
+      host: {{ .Values.host | quote }}
+      {{- end }}
+      http:
+        paths:
+          {{- range .Values.ingress.jwtPaths }}
+          - path: {{ .path | quote }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "livekit.fullname" $ }}-jwt
+                port:
+                  name: http
+          {{- end }}
+          {{- range .Values.ingress.serverPaths }}
+          - path: {{ .path | quote }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "livekit.fullname" $ }}
+                port:
+                  name: http
+          {{- end }}
+{{- end }}

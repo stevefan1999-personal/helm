@@ -1,0 +1,12 @@
+Cinny has been installed.
+
+Service endpoint:
+  {{ include "cinny.fullname" . }}:{{ .Values.service.port }}
+{{- if .Values.publicUrl }}
+Public URL:
+  {{ .Values.publicUrl }}
+{{- end }}
+{{- if .Values.homeserverProxy.enabled }}
+Homeserver compatibility proxy:
+  {{ include "cinny.homeserverProxyName" . }}:{{ .Values.homeserverProxy.service.port }}
+{{- end }}

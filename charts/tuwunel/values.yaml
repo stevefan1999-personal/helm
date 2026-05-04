@@ -1,0 +1,357 @@
+# -- Override chart name fragments.
+nameOverride: ""
+fullnameOverride: ""
+
+# Tuwunel is a single-node homeserver backed by RocksDB. Do not scale above 1.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/matrix-construct/tuwunel
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Avoid Kubernetes service-link env vars like TUWUNEL_PORT shadowing Tuwunel config.
+enableServiceLinks: false
+
+serverName: matrix.example.com
+publicUrl: "" # defaults to https://<serverName>
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8008
+  nodePort: null
+  annotations: {}
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  annotations: {}
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 6
+  readiness:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+
+config:
+  # Tuwunel must listen on all interfaces inside a Kubernetes pod.
+  address: 0.0.0.0
+  port: 8008
+  databasePath: /var/lib/tuwunel
+  log: info
+  allowFederation: true
+  # Serve deprecated unauthenticated /_matrix/media/* endpoints. Keep disabled
+  # unless a legacy client or browser-open-file compatibility path needs it.
+  allowLegacyMedia: false
+  trustedServers:
+    - matrix.org
+  # Example for trusted ingress controllers: rightmost_x_forwarded_for or x_real_ip.
+  ipSource: ""
+  maxRequestSize: "50 MiB"
+  additionalGlobal: {}
+  # Raw TOML appended after generated config. Use for advanced Tuwunel options.
+  extraToml: ""
+
+registration:
+  enabled: false
+  token: ""
+  openRegistration: false
+
+jwt:
+  enabled: false
+  key: ""
+  format: HMAC
+  algorithm: HS256
+  registerUser: true
+
+turn:
+  allowGuests: false
+  username: ""
+  password: ""
+  secret: ""
+  uris: []
+  ttl: 86400
+
+wellKnown:
+  client: "" # defaults to publicUrl
+  server: "" # defaults to <serverName>:443
+  supportPage: ""
+  supportRole: ""
+  supportEmail: ""
+  supportMxid: ""
+  livekitUrl: "" # defaults to livekit.publicUrl when livekit.enabled=true
+  rtcTransports: []
+
+# External OAuth/OIDC login providers. Tuwunel also enables its built-in Matrix
+# next-gen OIDC server when at least one provider and wellKnown.client are set.
+oidc:
+  enabled: false
+  singleSso: false
+  ssoCustomProvidersPage: false
+  oidcAwarePreferred: false
+  providers: []
+  # - brand: Keycloak
+  #   name: Keycloak
+  #   clientId: tuwunel
+  #   clientSecret: change-me
+  #   issuerUrl: https://sso.example.com/realms/matrix
+  #   callbackUrl: https://matrix.example.com/_matrix/client/unstable/login/sso/callback/tuwunel
+  #   default: true
+  #   trusted: true
+  #   registration: true
+  #   uniqueIdFallbacks: false
+  #   useridClaims: [preferred_username]
+  #   scope: [openid, profile, email]
+
+mediaStorage:
+  s3:
+    enabled: false
+    providerName: media_on_s3
+    includeLocalFallback: true
+    bucket: matrix-media
+    region: us-east-1
+    endpoint: "" # set to an S3-compatible endpoint; acceptance tests deploy JuiceFS separately
+    accessKey: minioadmin
+    secretKey: minioadmin
+    basePath: ""
+    useVhostRequest: false
+    useHttps: false
+    startupCheck: false
+    multipartThreshold: "100 MiB"
+    multipartPartSize: "10 MiB"
+
+# Experimental MatrixRTC/Element Call support. This is consumed by the bundled
+# livekit subchart; Tuwunel advertises the LiveKit focus through well-known.
+livekit:
+  enabled: false
+  host: matrix-rtc.example.com
+  publicUrl: "" # defaults to https://<livekit.host>
+  livekitUrl: "" # defaults to wss://<livekit.host> for lk-jwt-service
+  fullAccessHomeservers: matrix.example.com
+  apiKey: MRTCKEYCHANGE
+  apiSecret: MRTCSECRETCHANGE-MRTCSECRETCHANGE-MRTCSECRETCHANGE-MRTCSECRETCHANGE
+  livekitServer:
+    hostNetwork: false
+    dnsPolicy: ""
+    image:
+      repository: livekit/livekit-server
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      httpPort: 7880
+      tcpPort: 7881
+      httpNodePort: null
+      tcpNodePort: null
+      udpNodePort: null
+      annotations: {}
+    resources: {}
+  jwtService:
+    image:
+      repository: ghcr.io/element-hq/lk-jwt-service
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 8081
+      nodePort: null
+      annotations: {}
+    resources: {}
+    hostAliases: []
+    extraEnv: []
+    extraVolumes: []
+    extraVolumeMounts: []
+  rtc:
+    nodeIp: ""
+    udpPort: null
+    portRangeStart: 50100
+    portRangeEnd: 50200
+    useExternalIP: false
+    enableLoopbackCandidate: true
+  room:
+    autoCreate: false
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    serverPaths:
+      - path: /
+        pathType: Prefix
+    jwtPaths:
+      - path: /sfu/get
+        pathType: Prefix
+      - path: /healthz
+        pathType: Prefix
+    tls:
+      enabled: false
+      secretName: ""
+  certManager:
+    enabled: false
+    issuerKind: ClusterIssuer
+    issuerName: letsencrypt-prod
+  extraConfig: ""
+
+# Optional lightweight self-hosted web client. Cinny is bundled as a subchart
+# and served by nginx. The parent chart supplies config.json so an empty
+# homeserverList can still default to this chart's serverName.
+cinny:
+  enabled: false
+  # Preserve the historical tuwunel-web service name when enabled by parent.
+  nameOverride: web
+  publicUrl: "" # example: https://chat.example.com
+  image:
+    repository: ghcr.io/cinnyapp/cinny
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  service:
+    type: ClusterIP
+    port: 80
+    nodePort: null
+    annotations: {}
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chat.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      enabled: false
+      secretName: ""
+  certManager:
+    enabled: false
+    issuerKind: ClusterIssuer
+    issuerName: letsencrypt-prod
+  config:
+    # The parent Tuwunel chart renders Cinny config so it can auto-point at
+    # serverName. Set true only when using the Cinny subchart directly.
+    create: false
+    existingConfigMap: ""
+    # Cinny uses this 0-based index into homeserverList.
+    defaultHomeserver: 0
+    # Leave empty to auto-point Cinny at this chart's serverName.
+    # Cinny then discovers the Matrix base_url from .well-known/matrix/client.
+    homeserverList: []
+    allowCustomHomeservers: false
+    featuredCommunities:
+      openAsDefault: false
+      spaces: []
+      rooms: []
+      servers: []
+    hashRouter:
+      enabled: false
+      basename: /
+    extraConfig: {}
+    compatibility:
+      useBaseUrlForAuthenticatedDiscovery: false
+  homeserverProxy:
+    enabled: false
+    fullnameOverride: ""
+    image:
+      repository: nginx
+      tag: 1.29-alpine
+      pullPolicy: IfNotPresent
+    upstream: http://tuwunel:8008
+    rewriteAuthenticatedMedia: true
+    livekitJwt:
+      enabled: false
+      upstream: http://tuwunel-livekit-jwt:8081
+    podAnnotations: {}
+    podLabels: {}
+    podSecurityContext: {}
+    securityContext: {}
+    resources: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    service:
+      type: ClusterIP
+      port: 8080
+      nodePort: null
+      annotations: {}
+    ingress:
+      enabled: false
+      className: ""
+      annotations: {}
+      hosts:
+        - host: matrix.example.com
+          paths:
+            - path: /_matrix
+              pathType: Prefix
+            - path: /.well-known
+              pathType: Prefix
+      tls:
+        enabled: false
+        secretName: ""
+
+certManager:
+  enabled: false
+  issuerKind: ClusterIssuer
+  issuerName: letsencrypt-prod
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: matrix.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    enabled: false
+    secretName: ""
+
+extraEnv: []
+extraEnvFrom: []
+extraVolumes: []
+extraVolumeMounts: []
+extraContainers: []
+extraInitContainers: []
+
+tests:
+  enabled: true
+  image:
+    repository: curlimages/curl
+    tag: 8.11.1
+    pullPolicy: IfNotPresent

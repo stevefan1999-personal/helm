@@ -1,0 +1,378 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tuwunel-matrix-e2e-state
+  labels:
+    app.kubernetes.io/name: tuwunel-matrix-e2e
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 128Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tuwunel-matrix-e2e
+  labels:
+    app.kubernetes.io/name: tuwunel-matrix-e2e
+data:
+  matrix_e2e.py: |
+    #!/usr/bin/env python3
+    import asyncio
+    import hashlib
+    import io
+    import json
+    import os
+    import pathlib
+    import secrets
+    import sys
+    import time
+    import urllib.parse
+
+    import aiohttp
+    from nio import AsyncClient, MessageDirection
+
+    BASE_URL = os.environ.get("BASE_URL", "http://tuwunel:8008").rstrip("/")
+    SERVER_NAME = os.environ.get("SERVER_NAME", "tuwunel.192-168-2-190.nip.io")
+    REGISTRATION_TOKEN = os.environ.get("REGISTRATION_TOKEN", "acceptance-token")
+    STATE_FILE = pathlib.Path(os.environ.get("STATE_FILE", "/state/e2e.json"))
+    RAUTHY_ISSUER = os.environ.get(
+        "RAUTHY_ISSUER", "http://tuwunel-rauthy:8080/auth/v1/"
+    )
+    IDP_ID = os.environ.get("IDP_ID", "tuwunel-acceptance")
+    OIDC_CALLBACK_URL = os.environ.get(
+        "OIDC_CALLBACK_URL",
+        "http://tuwunel:8008/_matrix/client/unstable/login/sso/callback/tuwunel-acceptance",
+    )
+    LIVEKIT_HEALTH_URL = os.environ.get(
+        "LIVEKIT_HEALTH_URL", "http://tuwunel-livekit-jwt:8081/healthz"
+    )
+
+
+    def log(message):
+        print(f"[matrix-e2e] {message}", flush=True)
+
+
+    def assert_response_ok(response, action):
+        if response.__class__.__name__.endswith("Error"):
+            raise AssertionError(f"{action} failed: {response!r}")
+        return response
+
+
+    def event_body(event):
+        body = getattr(event, "body", None)
+        if body is not None:
+            return body
+        source = getattr(event, "source", None) or {}
+        return source.get("content", {}).get("body")
+
+
+    def event_type(event):
+        source = getattr(event, "source", None) or {}
+        return getattr(event, "type", None) or source.get("type")
+
+
+    async def get_json(session, url, action):
+        async with session.get(url) as resp:
+            text = await resp.text()
+            if resp.status >= 400:
+                raise AssertionError(f"{action} failed with HTTP {resp.status}: {text[:500]}")
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError as exc:
+                raise AssertionError(f"{action} did not return JSON: {text[:500]}") from exc
+
+
+    async def get_text(session, url, action):
+        async with session.get(url) as resp:
+            text = await resp.text()
+            if resp.status >= 400:
+                raise AssertionError(f"{action} failed with HTTP {resp.status}: {text[:500]}")
+            return text
+
+
+    async def check_oidc_livekit(session):
+        issuer = RAUTHY_ISSUER if RAUTHY_ISSUER.endswith("/") else f"{RAUTHY_ISSUER}/"
+        discovery_url = f"{issuer}.well-known/openid-configuration"
+        discovery = await get_json(session, discovery_url, "Rauthy OIDC discovery")
+        if discovery.get("issuer") != issuer:
+            raise AssertionError(
+                f"Rauthy issuer mismatch: expected {issuer!r}, got {discovery.get('issuer')!r}"
+            )
+        if not discovery.get("authorization_endpoint") or not discovery.get("token_endpoint"):
+            raise AssertionError("Rauthy discovery is missing authorization/token endpoints")
+        log("Rauthy OIDC discovery returned issuer and endpoints")
+
+        login = await get_json(session, f"{BASE_URL}/_matrix/client/v3/login", "Matrix login flows")
+        sso_flows = [flow for flow in login.get("flows", []) if flow.get("type") == "m.login.sso"]
+        if not sso_flows:
+            raise AssertionError(f"Matrix login flows do not include m.login.sso: {login}")
+        idps = sso_flows[0].get("identity_providers", [])
+        if not any(idp.get("id") == IDP_ID for idp in idps):
+            raise AssertionError(f"SSO flow does not list Rauthy IdP {IDP_ID!r}: {idps}")
+        log("Tuwunel login flow lists the Rauthy SSO identity provider")
+
+        redirect_target = "http://matrix-e2e.local/callback"
+        redirect_url = (
+            f"{BASE_URL}/_matrix/client/v3/login/sso/redirect/{urllib.parse.quote(IDP_ID)}"
+            f"?redirectUrl={urllib.parse.quote(redirect_target, safe='')}"
+        )
+        async with session.get(redirect_url, allow_redirects=False) as resp:
+            text = await resp.text()
+            if resp.status not in (302, 303, 307, 308):
+                raise AssertionError(
+                    f"SSO redirect returned HTTP {resp.status}, expected redirect: {text[:500]}"
+                )
+            location = resp.headers.get("Location")
+        if not location:
+            raise AssertionError("SSO redirect did not include a Location header")
+        parsed = urllib.parse.urlparse(location)
+        query = urllib.parse.parse_qs(parsed.query)
+        if not location.startswith(discovery["authorization_endpoint"]):
+            raise AssertionError(
+                f"SSO redirect did not target Rauthy authorize endpoint: {location}"
+            )
+        if query.get("client_id") != [IDP_ID]:
+            raise AssertionError(f"SSO redirect used wrong client_id: {query}")
+        if query.get("redirect_uri") != [OIDC_CALLBACK_URL]:
+            raise AssertionError(f"SSO redirect used wrong callback URL: {query}")
+        log("Tuwunel SSO redirect targets Rauthy with the bootstrapped client")
+
+        well_known = await get_json(
+            session, f"{BASE_URL}/.well-known/matrix/client", "Matrix .well-known"
+        )
+        if "livekit" not in json.dumps(well_known).lower():
+            raise AssertionError(f"Matrix .well-known does not advertise LiveKit: {well_known}")
+        await get_text(session, LIVEKIT_HEALTH_URL, "LiveKit JWT health")
+        log("Matrix .well-known advertises LiveKit and lk-jwt-service is healthy")
+
+
+    async def register_user(session, localpart, password):
+        payload = {
+            "username": localpart,
+            "password": password,
+            "auth": {
+                "type": "m.login.registration_token",
+                "token": REGISTRATION_TOKEN,
+            },
+            "initial_device_display_name": "matrix-nio acceptance",
+        }
+        async with session.post(f"{BASE_URL}/_matrix/client/v3/register", json=payload) as resp:
+            data = await resp.json(content_type=None)
+            if resp.status >= 400:
+                raise AssertionError(f"register {localpart} failed with HTTP {resp.status}: {data}")
+        for key in ("user_id", "device_id", "access_token"):
+            if not data.get(key):
+                raise AssertionError(f"registration for {localpart} missing {key}: {data}")
+        log(f"registered {data['user_id']}")
+        return data
+
+
+    def client_from_registration(registration):
+        client = AsyncClient(BASE_URL, registration["user_id"])
+        client.restore_login(
+            registration["user_id"], registration["device_id"], registration["access_token"]
+        )
+        return client
+
+
+    async def login_client(user_id, password, label):
+        client = AsyncClient(BASE_URL, user_id)
+        response = await client.login(password=password, device_name=f"matrix-nio {label}")
+        assert_response_ok(response, f"login {label}")
+        log(f"logged in {user_id} for {label}")
+        return client
+
+
+    async def sync_until_body(client, room_id, expected_body, label, timeout_seconds=45):
+        since = None
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            response = await client.sync(timeout=3000, since=since, full_state=True)
+            assert_response_ok(response, f"sync {label}")
+            since = response.next_batch
+            joined = response.rooms.join.get(room_id) if response.rooms else None
+            events = joined.timeline.events if joined else []
+            for event in events:
+                if event_type(event) == "m.room.message" and event_body(event) == expected_body:
+                    log(f"{label} observed message {expected_body!r} via sync")
+                    return True
+        raise AssertionError(f"{label} did not observe message {expected_body!r} in {room_id}")
+
+
+    async def history_contains_body(client, room_id, expected_body, label):
+        sync_response = await client.sync(timeout=3000, full_state=True)
+        assert_response_ok(sync_response, f"initial sync {label}")
+        joined = sync_response.rooms.join.get(room_id) if sync_response.rooms else None
+        events = joined.timeline.events if joined else []
+        for event in events:
+            if event_type(event) == "m.room.message" and event_body(event) == expected_body:
+                log(f"{label} found persisted message {expected_body!r} in initial sync")
+                return True
+
+        messages = await client.room_messages(
+            room_id, start=sync_response.next_batch, direction=MessageDirection.back, limit=100
+        )
+        assert_response_ok(messages, f"room history {label}")
+        for event in messages.chunk:
+            if event_type(event) == "m.room.message" and event_body(event) == expected_body:
+                log(f"{label} found persisted message {expected_body!r} in room history")
+                return True
+        raise AssertionError(f"{label} did not find persisted message {expected_body!r}")
+
+
+    async def download_and_check(client, mxc, expected_sha256, label):
+        response = await client.download(mxc=mxc)
+        assert_response_ok(response, f"download media {label}")
+        body = getattr(response, "body", None)
+        if not isinstance(body, (bytes, bytearray)):
+            with open(body, "rb") as handle:
+                body = handle.read()
+        actual = hashlib.sha256(body).hexdigest()
+        if actual != expected_sha256:
+            raise AssertionError(
+                f"{label} media hash mismatch: expected {expected_sha256}, got {actual}"
+            )
+        log(f"{label} downloaded persisted media {mxc}")
+
+
+    async def bootstrap():
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        async with aiohttp.ClientSession() as session:
+            await check_oidc_livekit(session)
+            run_id = f"{int(time.time())}{secrets.token_hex(3)}"
+            alice_local = f"alice{run_id}"
+            bob_local = f"bob{run_id}"
+            password = f"MatrixAcceptance-{run_id}-Passw0rd!"
+            alice_reg = await register_user(session, alice_local, password)
+            bob_reg = await register_user(session, bob_local, password)
+
+        alice = client_from_registration(alice_reg)
+        bob = client_from_registration(bob_reg)
+        try:
+            room = await alice.room_create(
+                name=f"Tuwunel acceptance {run_id}", federate=False
+            )
+            assert_response_ok(room, "create room")
+            room_id = room.room_id
+            invite = await alice.room_invite(room_id, bob_reg["user_id"])
+            assert_response_ok(invite, "invite Bob")
+            join = await bob.join(room_id)
+            assert_response_ok(join, "Bob join room")
+
+            alice_message = f"hello from alice through Tuwunel {run_id}"
+            response = await alice.room_send(
+                room_id,
+                "m.room.message",
+                {"msgtype": "m.text", "body": alice_message},
+            )
+            assert_response_ok(response, "Alice send message")
+            await sync_until_body(bob, room_id, alice_message, "Bob")
+
+            bob_message = f"reply from bob through Tuwunel {run_id}"
+            response = await bob.room_send(
+                room_id,
+                "m.room.message",
+                {"msgtype": "m.text", "body": bob_message},
+            )
+            assert_response_ok(response, "Bob send message")
+            await sync_until_body(alice, room_id, bob_message, "Alice")
+
+            media_body = f"persistent Matrix media through JuiceFS S3 {run_id}\n".encode()
+            upload, _ = await alice.upload(
+                io.BytesIO(media_body),
+                content_type="text/plain",
+                filename="tuwunel-acceptance.txt",
+                filesize=len(media_body),
+            )
+            assert_response_ok(upload, "Alice upload media")
+            mxc = upload.content_uri
+            media_message = f"media uploaded through S3 {run_id}"
+            response = await alice.room_send(
+                room_id,
+                "m.room.message",
+                {
+                    "msgtype": "m.file",
+                    "body": media_message,
+                    "url": mxc,
+                    "info": {"mimetype": "text/plain", "size": len(media_body)},
+                },
+            )
+            assert_response_ok(response, "Alice send media event")
+            await sync_until_body(bob, room_id, media_message, "Bob")
+            await download_and_check(
+                bob, mxc, hashlib.sha256(media_body).hexdigest(), "Bob before restart"
+            )
+        finally:
+            await alice.close()
+            await bob.close()
+
+        state = {
+            "run_id": run_id,
+            "alice_user_id": alice_reg["user_id"],
+            "bob_user_id": bob_reg["user_id"],
+            "password": password,
+            "room_id": room_id,
+            "alice_message": alice_message,
+            "bob_message": bob_message,
+            "media_message": media_message,
+            "media_mxc": mxc,
+            "media_sha256": hashlib.sha256(media_body).hexdigest(),
+        }
+        STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True))
+        log(f"bootstrap complete; wrote state to {STATE_FILE}")
+
+
+    async def verify():
+        state = json.loads(STATE_FILE.read_text())
+        async with aiohttp.ClientSession() as session:
+            await check_oidc_livekit(session)
+
+        alice = await login_client(state["alice_user_id"], state["password"], "Alice verify")
+        bob = await login_client(state["bob_user_id"], state["password"], "Bob verify")
+        try:
+            joined = await bob.joined_rooms()
+            assert_response_ok(joined, "Bob joined rooms")
+            if state["room_id"] not in joined.rooms:
+                raise AssertionError(f"Bob is missing persisted room {state['room_id']}: {joined.rooms}")
+            await history_contains_body(
+                bob, state["room_id"], state["alice_message"], "Bob after restart"
+            )
+            await history_contains_body(
+                alice, state["room_id"], state["bob_message"], "Alice after restart"
+            )
+            await history_contains_body(
+                bob, state["room_id"], state["media_message"], "Bob media event after restart"
+            )
+            await download_and_check(
+                bob, state["media_mxc"], state["media_sha256"], "Bob after restart"
+            )
+
+            post_restart = f"post-restart message {state['run_id']}"
+            response = await bob.room_send(
+                state["room_id"],
+                "m.room.message",
+                {"msgtype": "m.text", "body": post_restart},
+            )
+            assert_response_ok(response, "Bob send post-restart message")
+            await sync_until_body(alice, state["room_id"], post_restart, "Alice post-restart")
+        finally:
+            await alice.close()
+            await bob.close()
+        log("verify complete; Matrix messages, media, OIDC redirect, LiveKit, and persistence passed")
+
+
+    async def main():
+        phase = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("PHASE", "bootstrap")
+        if phase == "bootstrap":
+            await bootstrap()
+        elif phase == "verify":
+            await verify()
+        else:
+            raise SystemExit(f"unknown phase {phase!r}")
+
+
+    if __name__ == "__main__":
+        asyncio.run(main())

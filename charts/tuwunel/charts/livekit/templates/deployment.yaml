@@ -1,0 +1,207 @@
+{{- if .Values.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "livekit.fullname" . }}
+  labels:
+    {{- include "livekit.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "livekit.serverSelectorLabels" . | nindent 6 }}
+  {{- if .Values.livekitServer.hostNetwork }}
+  strategy:
+    type: Recreate
+    rollingUpdate: null
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.livekitServer.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "livekit.serverSelectorLabels" . | nindent 8 }}
+        {{- with .Values.livekitServer.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.livekitServer.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: {{ default "ClusterFirstWithHostNet" .Values.livekitServer.dnsPolicy }}
+      {{- else if .Values.livekitServer.dnsPolicy }}
+      dnsPolicy: {{ .Values.livekitServer.dnsPolicy }}
+      {{- end }}
+      containers:
+        - name: livekit
+          image: "{{ .Values.livekitServer.image.repository }}:{{ .Values.livekitServer.image.tag }}"
+          imagePullPolicy: {{ .Values.livekitServer.image.pullPolicy }}
+          args:
+            - --config
+            - /etc/livekit/livekit.yaml
+          ports:
+            - name: http
+              containerPort: {{ .Values.livekitServer.service.httpPort }}
+              protocol: TCP
+            - name: rtc-tcp
+              containerPort: {{ .Values.livekitServer.service.tcpPort }}
+              protocol: TCP
+            {{- if .Values.rtc.udpPort }}
+            - name: rtc-udp
+              containerPort: {{ .Values.rtc.udpPort }}
+              protocol: UDP
+            {{- end }}
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.livekitServer.resources | nindent 12 }}
+          {{- with .Values.livekitServer.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/livekit/livekit.yaml
+              subPath: livekit.yaml
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "livekit.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "livekit.fullname" . }}-jwt
+  labels:
+    {{- include "livekit.labels" . | nindent 4 }}
+    app.kubernetes.io/component: jwt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "livekit.jwtSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.jwtService.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "livekit.jwtSelectorLabels" . | nindent 8 }}
+        {{- with .Values.jwtService.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: lk-jwt-service
+          image: "{{ .Values.jwtService.image.repository }}:{{ .Values.jwtService.image.tag }}"
+          imagePullPolicy: {{ .Values.jwtService.image.pullPolicy }}
+          env:
+            - name: LIVEKIT_JWT_BIND
+              value: ":{{ .Values.jwtService.service.port }}"
+            - name: LIVEKIT_URL
+              value: {{ include "livekit.jwtLivekitUrl" . | quote }}
+            - name: LIVEKIT_FULL_ACCESS_HOMESERVERS
+              value: {{ .Values.fullAccessHomeservers | quote }}
+            - name: LIVEKIT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "livekit.secretName" . }}
+                  key: api_key
+            - name: LIVEKIT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "livekit.secretName" . }}
+                  key: api_secret
+            {{- with .Values.jwtService.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.jwtService.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.jwtService.resources | nindent 12 }}
+          {{- with .Values.jwtService.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.jwtService.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.jwtService.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.jwtService.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

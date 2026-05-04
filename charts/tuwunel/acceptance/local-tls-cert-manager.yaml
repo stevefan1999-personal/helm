@@ -1,0 +1,40 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tuwunel-local-ca
+spec:
+  isCA: true
+  commonName: tuwunel-local-ca
+  secretName: tuwunel-local-ca
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    kind: ClusterIssuer
+    name: selfsigned-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: tuwunel-local-ca
+spec:
+  ca:
+    secretName: tuwunel-local-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tuwunel-lan-ip-tls
+spec:
+  secretName: tuwunel-lan-ip-tls
+  commonName: tuwunel.192-168-2-190.nip.io
+  dnsNames:
+    - tuwunel.192-168-2-190.nip.io
+  ipAddresses:
+    - 192.168.2.190
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    kind: Issuer
+    name: tuwunel-local-ca

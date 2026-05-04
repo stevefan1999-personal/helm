@@ -1,0 +1,47 @@
+{{- if and .Values.enabled .Values.homeserverProxy.enabled .Values.homeserverProxy.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "cinny.homeserverProxyName" . }}
+  labels:
+    {{- include "cinny.homeserverProxyLabels" . | nindent 4 }}
+  {{- if or .Values.certManager.enabled .Values.homeserverProxy.ingress.annotations }}
+  annotations:
+    {{- include "cinny.certManagerAnnotations" . | nindent 4 }}
+    {{- with .Values.homeserverProxy.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  {{- if .Values.homeserverProxy.ingress.className }}
+  ingressClassName: {{ .Values.homeserverProxy.ingress.className | quote }}
+  {{- end }}
+  {{- if .Values.homeserverProxy.ingress.tls.enabled }}
+  tls:
+    {{- range .Values.homeserverProxy.ingress.hosts }}
+    - {{- if .host }}
+      hosts:
+        - {{ .host | quote }}
+      {{- end }}
+      secretName: {{ default (printf "%s-tls" (include "cinny.homeserverProxyName" $)) $.Values.homeserverProxy.ingress.tls.secretName | quote }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.homeserverProxy.ingress.hosts }}
+    - {{- if .host }}
+      host: {{ .host | quote }}
+      {{- end }}
+      http:
+        paths:
+          {{- $paths := .paths | default (list (dict "path" "/_matrix" "pathType" "Prefix") (dict "path" "/.well-known" "pathType" "Prefix")) }}
+          {{- range $paths }}
+          - path: {{ .path | quote }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "cinny.homeserverProxyName" $ }}
+                port:
+                  name: http
+          {{- end }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,88 @@
+enabled: false
+nameOverride: ""
+fullnameOverride: ""
+
+host: matrix-rtc.example.com
+publicUrl: "" # defaults to https://<host>
+livekitUrl: "" # defaults to wss://<host> for lk-jwt-service
+fullAccessHomeservers: matrix.example.com
+apiKey: MRTCKEYCHANGE
+apiSecret: MRTCSECRETCHANGE-MRTCSECRETCHANGE-MRTCSECRETCHANGE-MRTCSECRETCHANGE
+
+livekitServer:
+  hostNetwork: false
+  dnsPolicy: ""
+  image:
+    repository: livekit/livekit-server
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    httpPort: 7880
+    tcpPort: 7881
+    httpNodePort: null
+    tcpNodePort: null
+    udpNodePort: null
+    annotations: {}
+  resources: {}
+  podAnnotations: {}
+  podLabels: {}
+  securityContext: {}
+
+jwtService:
+  image:
+    repository: ghcr.io/element-hq/lk-jwt-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8081
+    nodePort: null
+    annotations: {}
+  resources: {}
+  podAnnotations: {}
+  podLabels: {}
+  securityContext: {}
+  hostAliases: []
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+rtc:
+  nodeIp: ""
+  udpPort: null
+  portRangeStart: 50100
+  portRangeEnd: 50200
+  useExternalIP: false
+  enableLoopbackCandidate: true
+
+room:
+  autoCreate: false
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  serverPaths:
+    - path: /
+      pathType: Prefix
+  jwtPaths:
+    - path: /sfu/get
+      pathType: Prefix
+    - path: /healthz
+      pathType: Prefix
+  tls:
+    enabled: false
+    secretName: ""
+
+certManager:
+  enabled: false
+  issuerKind: ClusterIssuer
+  issuerName: letsencrypt-prod
+
+podSecurityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+extraConfig: ""

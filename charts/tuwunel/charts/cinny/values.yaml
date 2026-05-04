@@ -1,0 +1,116 @@
+enabled: true
+
+nameOverride: ""
+fullnameOverride: ""
+
+publicUrl: ""
+
+image:
+  repository: ghcr.io/cinnyapp/cinny
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  nodePort: null
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: chat.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    enabled: false
+    secretName: ""
+
+certManager:
+  enabled: false
+  issuerKind: ClusterIssuer
+  issuerName: letsencrypt-prod
+
+config:
+  # Set to false when a parent chart supplies <fullname>-config.
+  create: true
+  existingConfigMap: ""
+  # Cinny uses this 0-based index into homeserverList.
+  defaultHomeserver: 0
+  # Leave empty only when the parent chart creates the config from its homeserver.
+  homeserverList:
+    - matrix.org
+  allowCustomHomeservers: false
+  featuredCommunities:
+    openAsDefault: false
+    spaces: []
+    rooms: []
+    servers: []
+  hashRouter:
+    enabled: false
+    basename: /
+  extraConfig: {}
+  compatibility:
+    # Cinny currently re-discovers .well-known from the Matrix user-id domain
+    # after login. In local NodePort/test deployments that domain may not serve
+    # .well-known, so MatrixRTC foci can be lost even when the configured
+    # homeserver URL advertises them. This nginx response patch makes Cinny use
+    # the configured baseUrl for that post-login discovery.
+    useBaseUrlForAuthenticatedDiscovery: false
+
+# Optional compatibility proxy for browser clients that build authenticated
+# media URLs but open files without attaching an Authorization header. Only use
+# together with a homeserver configured to serve legacy unauthenticated media.
+homeserverProxy:
+  enabled: false
+  fullnameOverride: ""
+  image:
+    repository: nginx
+    tag: 1.29-alpine
+    pullPolicy: IfNotPresent
+  upstream: http://tuwunel:8008
+  rewriteAuthenticatedMedia: true
+  livekitJwt:
+    enabled: false
+    upstream: http://tuwunel-livekit-jwt:8081
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: null
+    annotations: {}
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: matrix.example.com
+        paths:
+          - path: /_matrix
+            pathType: Prefix
+          - path: /.well-known
+            pathType: Prefix
+    tls:
+      enabled: false
+      secretName: ""

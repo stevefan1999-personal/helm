@@ -1,0 +1,13 @@
+apiVersion: v2
+name: cinny
+description: A Helm chart for deploying the Cinny Matrix web client.
+type: application
+version: 0.1.0
+appVersion: "latest"
+home: https://cinny.in
+sources:
+  - https://github.com/cinnyapp/cinny
+keywords:
+  - matrix
+  - cinny
+  - web-client

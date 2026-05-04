@@ -1,0 +1,40 @@
+Tuwunel has been installed.
+
+Service endpoint:
+  {{ include "tuwunel.fullname" . }}:{{ .Values.service.port }}
+
+Useful local check:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "tuwunel.fullname" . }} 8008:{{ .Values.service.port }}
+  curl http://127.0.0.1:8008/_matrix/client/versions
+
+Configured Matrix server_name:
+  {{ .Values.serverName }}
+
+{{- if .Values.oidc.enabled }}
+OIDC/OAuth providers are enabled. Tuwunel's built-in next-gen OIDC server is available because well-known client is set to:
+  {{ include "tuwunel.wellKnownClient" . }}
+{{- end }}
+
+{{- if .Values.mediaStorage.s3.enabled }}
+S3 media provider {{ .Values.mediaStorage.s3.providerName | quote }} is enabled. Its endpoint is:
+  {{ include "tuwunel.s3Endpoint" . }}
+{{- end }}
+
+{{- if .Values.livekit.enabled }}
+LiveKit subchart is enabled and advertised to Matrix clients as:
+  {{ include "tuwunel.livekitAdvertisedUrl" . }}
+{{- end }}
+
+{{- if .Values.cinny.enabled }}
+Cinny web client subchart is enabled.
+Service endpoint:
+  {{ include "tuwunel.cinnyName" . }}:{{ .Values.cinny.service.port }}
+{{- if .Values.cinny.publicUrl }}
+Public URL:
+  {{ .Values.cinny.publicUrl }}
+{{- end }}
+{{- if .Values.cinny.homeserverProxy.enabled }}
+Homeserver compatibility proxy:
+  {{ include "tuwunel.cinnyHomeserverProxyName" . }}:{{ .Values.cinny.homeserverProxy.service.port }}
+{{- end }}
+{{- end }}

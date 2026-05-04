@@ -1,0 +1,10 @@
+{{- if .Values.enabled }}
+LiveKit MatrixRTC is enabled.
+
+Advertise this URL from Tuwunel well-known:
+  {{ include "livekit.publicUrl" . }}
+
+The bundled lk-jwt-service is routed at /sfu/get on the same host when ingress is enabled.
+{{- else }}
+LiveKit MatrixRTC subchart is disabled.
+{{- end }}

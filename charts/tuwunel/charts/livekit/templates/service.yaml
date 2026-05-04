@@ -1,0 +1,63 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "livekit.fullname" . }}
+  labels:
+    {{- include "livekit.labels" . | nindent 4 }}
+  {{- with .Values.livekitServer.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.livekitServer.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.livekitServer.service.httpPort }}
+      targetPort: http
+      protocol: TCP
+      {{- if and (eq .Values.livekitServer.service.type "NodePort") .Values.livekitServer.service.httpNodePort }}
+      nodePort: {{ .Values.livekitServer.service.httpNodePort }}
+      {{- end }}
+    - name: rtc-tcp
+      port: {{ .Values.livekitServer.service.tcpPort }}
+      targetPort: rtc-tcp
+      protocol: TCP
+      {{- if and (eq .Values.livekitServer.service.type "NodePort") .Values.livekitServer.service.tcpNodePort }}
+      nodePort: {{ .Values.livekitServer.service.tcpNodePort }}
+      {{- end }}
+    {{- if .Values.rtc.udpPort }}
+    - name: rtc-udp
+      port: {{ .Values.rtc.udpPort }}
+      targetPort: rtc-udp
+      protocol: UDP
+      {{- if and (eq .Values.livekitServer.service.type "NodePort") .Values.livekitServer.service.udpNodePort }}
+      nodePort: {{ .Values.livekitServer.service.udpNodePort }}
+      {{- end }}
+    {{- end }}
+  selector:
+    {{- include "livekit.serverSelectorLabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "livekit.fullname" . }}-jwt
+  labels:
+    {{- include "livekit.labels" . | nindent 4 }}
+  {{- with .Values.jwtService.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.jwtService.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.jwtService.service.port }}
+      targetPort: http
+      protocol: TCP
+      {{- if and (eq .Values.jwtService.service.type "NodePort") .Values.jwtService.service.nodePort }}
+      nodePort: {{ .Values.jwtService.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "livekit.jwtSelectorLabels" . | nindent 4 }}
+{{- end }}
