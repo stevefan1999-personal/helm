@@ -209,4 +209,72 @@ entries:
     urls:
     - https://github.com/stevefan1999-personal/helm/releases/download/netbird-proxy-lib-0.1.0/netbird-proxy-lib-0.1.0.tgz
     version: 0.1.0
-generated: "2026-05-04T16:33:02.050232142Z"
+  tuwunel:
+  - apiVersion: v2
+    appVersion: latest
+    created: "2026-05-04T16:56:42.25342539Z"
+    dependencies:
+    - condition: livekit.enabled
+      name: livekit
+      repository: file://charts/livekit
+      version: 0.1.0
+    - condition: cinny.enabled
+      name: cinny
+      repository: file://charts/cinny
+      version: 0.1.0
+    description: A Helm chart for deploying the Tuwunel Matrix homeserver.
+    digest: a8252435ae125c6b3060dc34875b8d90674fe2c3cfd8d32680ab04677a96fdc1
+    home: https://github.com/matrix-construct/tuwunel
+    keywords:
+    - matrix
+    - homeserver
+    - tuwunel
+    - oidc
+    - livekit
+    maintainers:
+    - name: stevefan1999-personal
+    name: tuwunel
+    sources:
+    - https://github.com/matrix-construct/tuwunel
+    type: application
+    urls:
+    - https://github.com/stevefan1999-personal/helm/releases/download/tuwunel-0.1.0/tuwunel-0.1.0.tgz
+    version: 0.1.0
+  zulip:
+  - apiVersion: v2
+    appVersion: 12.0-0
+    created: "2026-05-04T16:56:42.469737837Z"
+    dependencies:
+    - condition: web.enabled
+      name: web
+      repository: ""
+      version: 1.13.1
+    - condition: tornado.enabled
+      name: tornado
+      repository: ""
+      version: 1.13.1
+    - condition: worker.enabled
+      name: worker
+      repository: ""
+      version: 1.13.1
+    - condition: singleton.enabled
+      name: singleton
+      repository: ""
+      version: 1.13.1
+    description: Zulip is an open source threaded team chat. This meta chart renders
+      role subcharts plus operator-managed CNPG PostgreSQL and RabbitMQ resources
+      without external infrastructure chart dependencies.
+    digest: f42debf2b0bfd9c78cb8d870791956c0bc779cce0a898d6693355ef61eae8582
+    icon: https://raw.githubusercontent.com/zulip/zulip/main/static/images/logo/zulip-icon-square.svg
+    maintainers:
+    - name: zulip
+      url: https://chat.zulip.org/
+    name: zulip
+    sources:
+    - https://github.com/zulip/zulip
+    - https://ghcr.io/zulip/zulip-server
+    type: application
+    urls:
+    - https://github.com/stevefan1999-personal/helm/releases/download/zulip-1.13.1/zulip-1.13.1.tgz
+    version: 1.13.1
+generated: "2026-05-04T16:56:42.469754939Z"
