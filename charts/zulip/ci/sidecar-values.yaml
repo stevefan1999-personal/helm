@@ -1,0 +1,26 @@
+---
+zulip:
+  settings:
+    administratorEmail: admin@example.com
+    externalHost: zulip.example.com
+  secrets:
+    secretKey: test-secret-key
+web:
+  sidecars:
+  - name: backup-agent
+    image: busybox:latest
+    command:
+    - sleep
+    - infinity
+memcached:
+  memcachedPassword: test-memcached
+rabbitmq:
+  auth:
+    password: test-rabbitmq
+    erlangCookie: test-cookie
+redis:
+  auth:
+    password: test-redis
+cnpg:
+  auth:
+    password: test-pg-zulip

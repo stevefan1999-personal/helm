@@ -9,6 +9,7 @@ charts=(
   charts/netbird
   charts/netbird-combined
   charts/tuwunel
+  charts/zulip
 )
 
 for chart in "${charts[@]}"; do

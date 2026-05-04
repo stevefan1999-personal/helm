@@ -1,0 +1,607 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "valueFrom": {
+      "type": "object",
+      "description": "Kubernetes valueFrom reference for environment variables.",
+      "properties": {
+        "valueFrom": {
+          "type": "object",
+          "properties": {
+            "secretKeyRef": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "key"
+              ]
+            },
+            "configMapKeyRef": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "key"
+              ]
+            },
+            "fieldRef": {
+              "type": "object",
+              "properties": {
+                "fieldPath": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "fieldPath"
+              ]
+            },
+            "resourceFieldRef": {
+              "type": "object",
+              "properties": {
+                "containerName": {
+                  "type": "string"
+                },
+                "resource": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "resource"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "valueFrom"
+      ]
+    },
+    "scalarOrValueFrom": {
+      "description": "A scalar value or a Kubernetes valueFrom reference.",
+      "oneOf": [
+        {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        {
+          "$ref": "#/definitions/valueFrom"
+        }
+      ]
+    },
+    "probeConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "initialDelaySeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "periodSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "failureThreshold": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "successThreshold": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "required": [
+    "zulip"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "cnpg": {
+            "properties": {
+              "enabled": {
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "externalPostgresql": {
+            "required": [
+              "host",
+              "port",
+              "password"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "rabbitmq": {
+            "properties": {
+              "enabled": {
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "externalRabbitmq": {
+            "required": [
+              "host",
+              "port",
+              "password"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "memcached": {
+            "properties": {
+              "enabled": {
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "externalMemcached": {
+            "required": [
+              "host",
+              "port",
+              "password"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "redis": {
+            "properties": {
+              "enabled": {
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "externalRedis": {
+            "required": [
+              "host",
+              "port",
+              "password"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "nameOverride": {
+      "type": "string",
+      "description": "Partially override zulip.fullname template (will maintain the release name)."
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "description": "Fully override zulip.fullname template."
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Service account configuration.",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Specifies whether a service account should be created."
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to add to the service account."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the service account to use."
+        }
+      }
+    },
+    "zulip": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Zulip application configuration.",
+      "properties": {
+        "tornadoSharding": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Structured [tornado_sharding] configuration rendered into native Zulip config files.",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "rules": {
+              "type": "object",
+              "propertyNames": {
+                "pattern": "^[0-9]+(_[0-9]+)*(_regex)?$"
+              },
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "secrets": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "queueWorkers": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "objectStorage": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "S3-compatible object storage for durable Zulip uploads.",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "uploadsBucket": {
+              "type": "string"
+            },
+            "avatarBucket": {
+              "type": "string"
+            },
+            "endpointUrl": {
+              "type": "string"
+            },
+            "region": {
+              "type": "string"
+            },
+            "addressingStyle": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "virtual",
+                "path"
+              ]
+            },
+            "avatarPublicUrlPrefix": {
+              "type": "string"
+            },
+            "caBundle": {
+              "type": "string"
+            },
+            "avatarProxy": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "pathPrefix": {
+                  "type": "string"
+                },
+                "upstreamUrl": {
+                  "type": "string"
+                }
+              }
+            },
+            "uploadsStorageClass": {
+              "type": "string"
+            },
+            "skipChecksum": {
+              "type": "boolean"
+            },
+            "skipProxy": {
+              "type": "boolean"
+            },
+            "accessKey": {
+              "type": "string"
+            },
+            "secretKey": {
+              "type": "string"
+            }
+          }
+        },
+        "extraEnv": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/scalarOrValueFrom"
+          }
+        },
+        "systemConfigExtra": {
+          "type": "string"
+        }
+      }
+    },
+    "extraObjects": {
+      "type": "array",
+      "description": "Extra Kubernetes objects to create (supports templating).",
+      "items": {}
+    },
+    "global": {
+      "type": "object",
+      "description": "Global values shared with Zulip role subcharts.",
+      "additionalProperties": true
+    },
+    "externalPostgresql": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "External PostgreSQL configuration. Used when postgresql.enabled is false.",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "External PostgreSQL hostname."
+        },
+        "port": {
+          "type": "integer",
+          "description": "External PostgreSQL port.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "database": {
+          "type": "string",
+          "description": "PostgreSQL database name."
+        },
+        "user": {
+          "type": "string",
+          "description": "PostgreSQL username."
+        },
+        "password": {
+          "$ref": "#/definitions/scalarOrValueFrom",
+          "description": "PostgreSQL password. Supports scalar values and valueFrom maps."
+        },
+        "sslmode": {
+          "type": "string",
+          "description": "PostgreSQL SSL mode."
+        }
+      }
+    },
+    "rabbitmq": {
+      "type": "object",
+      "description": "RabbitMQ Cluster Operator RabbitmqCluster configuration rendered by this chart.",
+      "additionalProperties": true
+    },
+    "externalRabbitmq": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "External RabbitMQ configuration. Used when rabbitmq.enabled is false.",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "External RabbitMQ hostname."
+        },
+        "port": {
+          "type": "integer",
+          "description": "External RabbitMQ port.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "user": {
+          "type": "string",
+          "description": "RabbitMQ username."
+        },
+        "password": {
+          "$ref": "#/definitions/scalarOrValueFrom",
+          "description": "RabbitMQ password. Supports scalar values and valueFrom maps."
+        }
+      }
+    },
+    "memcached": {
+      "type": "object",
+      "description": "In-chart Memcached Deployment/Service configuration.",
+      "additionalProperties": true
+    },
+    "externalMemcached": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "External Memcached configuration. Used when memcached.enabled is false.",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "External Memcached hostname."
+        },
+        "port": {
+          "type": "integer",
+          "description": "External Memcached port.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "user": {
+          "type": "string",
+          "description": "Memcached username."
+        },
+        "password": {
+          "$ref": "#/definitions/scalarOrValueFrom",
+          "description": "Memcached password. Supports scalar values and valueFrom maps."
+        }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "description": "In-chart Redis Deployment/Service configuration.",
+      "additionalProperties": true
+    },
+    "externalRedis": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "External Redis configuration. Used when redis.enabled is false.",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "External Redis hostname."
+        },
+        "port": {
+          "type": "integer",
+          "description": "External Redis port.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "password": {
+          "$ref": "#/definitions/scalarOrValueFrom",
+          "description": "Redis password. Supports scalar values and valueFrom maps."
+        }
+      }
+    },
+    "cnpg": {
+      "type": "object",
+      "description": "CloudNativePG Cluster configuration rendered by this chart.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "instances": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "imageName": {
+          "type": "string"
+        },
+        "initdb": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "CNPG bootstrap.initdb options for the application database.",
+          "properties": {
+            "encoding": {
+              "type": "string"
+            },
+            "localeCollate": {
+              "type": "string"
+            },
+            "localeCType": {
+              "type": "string"
+            },
+            "postInitApplicationSQL": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "pgroonga": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Optional PGroonga bootstrap and Zulip configuration.",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "createExtension": {
+              "type": "boolean"
+            },
+            "configureZulip": {
+              "type": "boolean"
+            }
+          }
+        },
+        "auth": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "walStorage": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "web": {
+      "type": "object",
+      "description": "Zulip web role subchart values.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "tornado": {
+      "type": "object",
+      "description": "Zulip tornado role subchart values.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "description": "Zulip worker role subchart values.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "singleton": {
+      "type": "object",
+      "description": "Zulip singleton role subchart values.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "description": "Kubernetes-native Zulip migration Job settings.",
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,270 @@
+## [1.13.1] - 2026-05-04
+
+- Replace docker-zulip compatibility with Kubernetes-native runtime scripts,
+  generated config files, and a dedicated migration Job.
+- Split web into nginx gateway and Django deployments, render worker groups as
+  independent Deployments, and render singleton processes as independent
+  one-replica Deployments.
+- Remove Zulip upload PVCs and document object storage as the durable upload
+  backend for scaled deployments.
+
+## [1.12.0] - 2026-04-27
+
+- Update to Zulip Server 12.0-0
+- Minor fixes to schema
+
+## [1.11.61] - 2026-03-31
+
+- Improved helm values schema.
+- Update to Zulip Server 11.6-1
+
+## [1.11.60] - 2026-03-31
+
+- Update install instruction to use GHCR OCI repository
+- Remove commented-out annotations in example values.
+- Add values.schema.json for chart validation.
+- Update to Zulip Server 11.6-0
+
+## [1.11.57] - 2026-03-05
+
+- Support `valueFrom` for all dependent service passwords, enabling
+  secret-free values files.
+- Support `SECRETS_secret_key` via `zulip.environment` with `valueFrom`;
+  deprecate `zulip.password`.
+- Fix post-setup-scripts ConfigMap name mismatch when the release name
+  does not contain "zulip".
+- Fix port-forward service name in NOTES.txt.
+- Fix "posgresql" typo in Chart.yaml.
+- Guard service annotations with a `with` block to avoid empty output.
+- Replace deprecated Ingress annotations with modern equivalents.
+- Remove placeholder defaults (`ZULIP_AUTH_BACKENDS`,
+  `SECRETS_email_password`, and other non-real configuration).
+- Add Helm chart how-to documentation and move Minikube setup from
+  chart README to docs.
+- Add CI workflow to publish Helm chart to GHCR on `helm-*` tags.
+- Update documentation in example values-local.yaml file.
+
+## [1.11.56] - 2026-02-24
+
+- Support adding annotations to the service.
+
+## [1.11.55] - 2026-02-24
+
+- Support pre-existing (external) services.
+
+## [1.11.54] - 2026-02-11
+
+- Reset the `ZULIP_ADMINISTRATOR` in `values.yaml` to the "unset" default.
+
+## [1.11.53] - 2026-02-10
+
+- Upgrade to ghcr.io/zulip/zulip-server:11.5-2
+
+## [1.11.52] - 2026-02-10
+
+- Upgrade to ghcr.io/zulip/zulip-server:11.5-1
+
+## [1.11.51] - 2026-02-06
+
+- Switch to the image at ghcr.io/zulip/zulip-server, which is compatible with
+  the chart as written.
+
+## [1.11.50] - 2026-02-05
+
+- Switch to a new `CERTIFICATES` env var, which combines of `DISABLE_HTTPS` and
+  `SSL_CERTIFICATE_GENERATION`. The chart defaults to HTTP-only.
+
+## [0.11.51] - 2026-02-05
+
+- Allow setting extraObjects, e.g. for SecretProviderClass or ConfigMap.
+- Allow setting an explicit ingress.className
+
+## [0.11.50] - 2026-02-05
+
+- Update to Zulip Server 11.5
+
+## [0.11.43] - 2026-02-03
+
+- Change CI to use artifacts for inter-job caching.
+
+## [0.11.42] - 2025-11-13
+
+- Switch to bitnamilegacy images.
+- Fix containerSecurityContext to run PostgreSQL as non-root.
+- Switch to healthchecking the /health endpoint, and add ACL'ing so Zulip allows
+  those checks.
+- Reformat CHART.yaml with Prettier
+
+## [0.11.41] - 2025-10-30
+
+- Add maintainer information
+- Repackage with additional version space
+
+## [0.11.4] - 2025-10-23
+
+- Update to Zulip Server 11.4
+
+## [0.11.3] - 2025-10-22
+
+- Update to Zulip Server 11.3
+- Support valueFrom in both `SECRETS_` and `SETTING_` values
+- Support `PROXY_ALLOW_*` settings for outgoing proxy rules
+- Support `DB_NAME` / `DB_USER` settings.
+
+## [0.11.2] - 2025-09-16
+
+- Update to Zulip Server 11.2
+
+## [0.11.1] - 2025-09-11
+
+- Update to Zulip Server 11.1
+
+## [0.11.0] - 2025-08-13
+
+- Update to Zulip Server 11.0
+
+## [0.10.4] - 2025-07-02
+
+- Update to Zulip Server 10.4
+
+## [0.10.3] - 2025-05-15
+
+- Update to Zulip Server 10.3
+
+## [0.10.2] - 2025-04-15
+
+- Update to Zulip Server 10.2
+
+## [0.10.1] - 2025-03-28
+
+- Update to Zulip Server 10.1
+
+## [0.10.0] - 2025-03-20
+
+- Update to Zulip Server 10.0
+
+## [0.9.40] - 2025-01-16
+
+- Update to Zulip Server 9.4
+
+## [0.9.30] - 2024-11-23
+
+- Update to Zulip Server 9.3
+
+## [0.9.20] - 2024-09-16
+
+- Update to Zulip Server 9.2
+- Change nginx's max-upload size to match standard Zulip (80m)
+
+## [0.9.13] - 2024-09-09
+
+- More thoroughly remove the `ubuntu` user
+
+## [0.9.12] - 2024-09-09
+
+- Fix consistent user-ID for `zulip` user
+
+## [0.9.11] - 2024-08-28
+
+- Packaging updates for Docker
+
+## [0.9.1] - 2024-08-02
+
+- Update Zulip Server to 9.1
+
+## [0.9.1] - 2024-07-25
+
+- Update Zulip Server to 9.1
+
+## [0.8.4] - 2024-05-09
+
+- Update Zulip Server to 8.4
+
+## [0.8.3] - 2024-03-19
+
+- Update Zulip Server to 8.3
+
+## [0.8.2] - 2024-02-16
+
+- Update Zulip Server to 8.2
+
+## [0.8.1] - 2024-01-24
+
+- Update Zulip Server to 8.1
+
+## [0.8.0] - 2023-12-15
+
+- Update Zulip Server to 8.0
+
+## [0.7.5] - 2023-11-17
+
+- Update Zulip Server to 7.5
+
+## [0.7.4] - 2023-09-15
+
+- Update Zulip Server to 7.4
+
+## [0.7.3] - 2023-08-25
+
+- Update Zulip Server to 7.3
+
+## [0.7.2] - 2023-07-05
+
+- Update Zulip Server to 7.2
+
+## [0.7.1] - 2023-06-13
+
+- Update Zulip Server to 7.1
+
+## [0.7.0] - 2023-05-31
+
+- Update Zulip Server to 7.0
+
+## [0.6.2] - 2023-05-19
+
+- Update Zulip Server to 6.2
+
+## [0.6.1] - 2023-01-23
+
+- Update Zulip Server to 6.1
+
+## [0.6.0] - 2022-11-23
+
+- Update Zulip Server to 6.0
+
+## [0.5.0] - 2022-11-16
+
+- Update Zulip Server to 5.7
+
+## [0.4.0] - 2022-06-21
+
+- Update Zulip Server 5.2 to 5.6
+
+## [0.3.0] - 2022-04-21
+
+- Update dependencies:
+  - Helm charts:
+
+    | Repository                         | Name       | Version |
+    | ---------------------------------- | ---------- | ------- |
+    | https://charts.bitnami.com/bitnami | memcached  | 6.0.16  |
+    | https://charts.bitnami.com/bitnami | postgresql | 11.1.22 |
+    | https://charts.bitnami.com/bitnami | rabbitmq   | 8.32.0  |
+    | https://charts.bitnami.com/bitnami | redis      | 16.8.7  |
+
+  - Update postgres 10 to postgres 14
+  - Update Zulip 4.7 to 5.2
+
+- Remove autoscaling code
+- Remove readiness probe because its function is the same as the liveness probe
+
+## [0.2.0] - 2021-11-22
+
+- Use dependency charts from the Bitnami repository for Memcached, Rabbitmq,
+  Redis and PostgreSQL
+- Use a StatefulSet instead of a Deployment
+- Add the possibility to run postSetup scripts
+
+## [0.1.0] - 2020-12-30
+
+- First version of helm chart created

@@ -1,0 +1,49 @@
+suite: Operator managed dependencies
+tests:
+  - it: renders a CloudNativePG Cluster by default
+    templates:
+      - cnpg-cluster.yaml
+    asserts:
+      - isKind:
+          of: Cluster
+      - equal:
+          path: apiVersion
+          value: postgresql.cnpg.io/v1
+      - equal:
+          path: spec.bootstrap.initdb.database
+          value: zulip
+      - equal:
+          path: spec.imageName
+          value: ghcr.io/cloudnative-pg/postgresql:14
+      - equal:
+          path: spec.bootstrap.initdb.localeCollate
+          value: C.UTF-8
+
+  - it: appends PGroonga extension SQL when enabled
+    templates:
+      - cnpg-cluster.yaml
+    values:
+      - ../ci/simple-values.yaml
+      - ../ci/pgroonga-tornado-values.yaml
+    asserts:
+      - contains:
+          path: spec.bootstrap.initdb.postInitApplicationSQL
+          content: SELECT 1;
+        documentIndex: 1
+      - contains:
+          path: spec.bootstrap.initdb.postInitApplicationSQL
+          content: CREATE EXTENSION IF NOT EXISTS pgroonga;
+        documentIndex: 1
+
+  - it: renders a RabbitMQ operator cluster by default
+    templates:
+      - rabbitmq-cluster.yaml
+    asserts:
+      - isKind:
+          of: RabbitmqCluster
+      - equal:
+          path: apiVersion
+          value: rabbitmq.com/v1beta1
+      - equal:
+          path: spec.service.type
+          value: ClusterIP

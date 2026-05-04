@@ -1,0 +1,15 @@
+dependencies:
+- name: web
+  repository: ""
+  version: 1.13.1
+- name: tornado
+  repository: ""
+  version: 1.13.1
+- name: worker
+  repository: ""
+  version: 1.13.1
+- name: singleton
+  repository: ""
+  version: 1.13.1
+digest: sha256:2e6484ac2923d0ceeb0415a1d95eb0408e5bab662fc0f4d3105613c9e22e680d
+generated: "2026-05-04T14:18:01.748962653+08:00"

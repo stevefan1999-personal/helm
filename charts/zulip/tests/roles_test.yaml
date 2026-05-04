@@ -1,0 +1,284 @@
+suite: Kubernetes-native roles
+tests:
+  - it: renders one Tornado service per configured port
+    templates:
+      - charts/tornado/templates/service.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    asserts:
+      - hasDocuments:
+          count: 3
+      - containsDocument:
+          apiVersion: v1
+          kind: Service
+          name: split-zulip-tornado-9800
+          any: true
+      - containsDocument:
+          apiVersion: v1
+          kind: Service
+          name: split-zulip-tornado-9801
+          any: true
+      - containsDocument:
+          apiVersion: v1
+          kind: Service
+          name: split-zulip-tornado-9802
+          any: true
+      - equal:
+          path: spec.ports[0].targetPort
+          value: tornado-proxy
+
+  - it: renders one Tornado deployment per configured port with a socat localhost shim
+    templates:
+      - charts/tornado/templates/deployment.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: split-zulip-tornado-9801
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: spec.replicas
+          value: 1
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: /opt/zulip-k8s/run-tornado.sh
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_K8S_TORNADO_PORT
+            value: "9801"
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: tornado
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 2
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: tornado-proxy
+      - matchRegex:
+          path: spec.template.spec.containers[1].image
+          pattern: "^alpine/socat:"
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: ZULIP_K8S_TORNADO_PROXY_PORT
+            value: "19801"
+      - equal:
+          path: spec.template.spec.containers[1].ports[0].containerPort
+          value: 19801
+
+  - it: renders separate nginx gateway and Django deployments
+    templates:
+      - charts/web/templates/deployment.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    asserts:
+      - hasDocuments:
+          count: 2
+      - containsDocument:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: split-zulip-web
+          any: true
+      - containsDocument:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: split-zulip-django
+          any: true
+
+  - it: gives the gateway only nginx and the Django pod direct uwsgi plus Tornado proxy
+    templates:
+      - charts/web/templates/deployment.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: split-zulip-django
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: django
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: django
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: /opt/zulip-k8s/run-django.sh
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: tornado-proxy
+      - matchRegex:
+          path: spec.template.spec.containers[1].image
+          pattern: "^alpine/socat:"
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: ZULIP_K8S_TORNADO_PORTS
+            value: "9800 9801 9802"
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: ZULIP_K8S_TORNADO_SERVICE_PREFIX
+            value: split-zulip-tornado
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 3
+
+  - it: renders one worker deployment per worker group with direct process_queue runtime
+    templates:
+      - charts/worker/templates/deployment.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: split-zulip-worker-default
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 2
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/worker-group"]
+          value: default
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: /opt/zulip-k8s/run-worker.sh
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_WORKER_QUEUES
+            value: deferred_work digest_emails email_mirror embed_links embedded_bots email_senders deferred_email_senders missedmessage_emails missedmessage_mobile_notifications outgoing_webhooks thumbnail user_activity user_activity_interval
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+
+  - it: supports dedicated sharded worker groups
+    templates:
+      - charts/worker/templates/deployment.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    set:
+      worker.groups.user-activity-1.queue: user_activity
+      worker.groups.user-activity-1.workerNum: 1
+      worker.groups.user-activity-1.replicas: 2
+      worker.groups.user-activity-1.queues: null
+    documentSelector:
+      path: metadata.name
+      value: split-zulip-worker-user-activity-1
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 2
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_WORKER_QUEUE
+            value: user_activity
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_WORKER_NUM
+            value: "1"
+
+  - it: renders one singleton deployment per enabled singleton process
+    templates:
+      - charts/singleton/templates/deployment.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    asserts:
+      - hasDocuments:
+          count: 3
+      - containsDocument:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: split-zulip-singleton-fts-updater
+          any: true
+      - containsDocument:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: split-zulip-singleton-scheduled-emails
+          any: true
+      - containsDocument:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: split-zulip-singleton-scheduled-messages
+          any: true
+
+  - it: gives singleton processes direct commands and exactly one replica
+    templates:
+      - charts/singleton/templates/deployment.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: split-zulip-singleton-scheduled-messages
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: /opt/zulip-k8s/run-singleton.sh
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SINGLETON_PROCESS
+            value: scheduled-messages
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+
+  - it: routes the public Zulip service to the nginx gateway pods
+    templates:
+      - charts/web/templates/service.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    asserts:
+      - equal:
+          path: metadata.name
+          value: split-zulip
+      - equal:
+          path: spec.selector["app.kubernetes.io/component"]
+          value: web
+
+  - it: routes Tornado services to the pod-local socat shim
+    templates:
+      - charts/tornado/templates/service.yaml
+    values:
+      - ../ci/split-roles-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: split-zulip-tornado-9800
+    asserts:
+      - equal:
+          path: spec.ports[0].targetPort
+          value: tornado-proxy
+
+  - it: rejects multiple replicas for a single Tornado port
+    templates:
+      - charts/tornado/templates/deployment.yaml
+    set:
+      tornado.replicasPerShard: 2
+    asserts:
+      - failedTemplate:
+          errorPattern: tornado.replicasPerShard must be 1
+
+  - it: rejects multiple singleton replicas
+    templates:
+      - charts/singleton/templates/deployment.yaml
+    set:
+      singleton.replicas: 2
+    asserts:
+      - failedTemplate:
+          errorPattern: singleton.replicas must be 1
+
+  - it: rejects sharding rules that reference Tornado ports without a matching role service
+    templates:
+      - validate.yaml
+    values:
+      - ../ci/split-roles-missing-port-values.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: tornado.ports must include port 9801

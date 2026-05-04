@@ -1,0 +1,36 @@
+global:
+  zulip:
+    name: split-zulip
+    envConfigMapName: split-zulip-env
+    envSecretName: split-zulip-env
+    serviceAccountName: split-zulip
+    postgresql:
+      appSecretName: split-zulip-postgresql-app
+    rabbitmq:
+      defaultUserSecretName: split-zulip-rabbitmq-default-user
+    redis:
+      secretName: split-zulip-redis-auth
+
+zulip:
+  tornadoSharding:
+    enabled: true
+    rules:
+      "9800": small
+      "9801_9802": large
+
+web:
+  replicas: 2
+  tornadoProxy:
+    ports:
+      - 9800
+      - 9801
+      - 9802
+
+tornado:
+  ports:
+    - 9800
+    - 9801
+    - 9802
+
+worker:
+  replicas: 2

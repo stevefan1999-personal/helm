@@ -1,0 +1,27 @@
+{{- if and .Values.enabled .Values.django.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "web.djangoName" . }}
+  labels:
+    {{- include "web.djangoLabels" . | nindent 4 }}
+  {{- with .Values.django.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: django
+      port: {{ .Values.django.service.port | default .Values.django.port | default 8080 }}
+      targetPort: django
+      protocol: TCP
+    {{- if .Values.tusd.enabled }}
+    - name: tusd
+      port: {{ .Values.tusd.service.port | default .Values.tusd.port | default 9900 }}
+      targetPort: tusd
+      protocol: TCP
+    {{- end }}
+  selector:
+    {{- include "web.djangoSelectorLabels" . | nindent 4 }}
+{{- end }}

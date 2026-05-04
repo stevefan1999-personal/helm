@@ -1,0 +1,60 @@
+enabled: true
+replicas: 1
+appName: zulip
+fullnameOverride: ""
+serviceAccountName: ""
+image: {}
+imagePullSecrets: []
+podLabels: {}
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+sidecars: []
+dependencyGuard:
+  enabled: true
+  attempts: 120
+  sleepSeconds: 5
+sharedEnv:
+  configMapName: ""
+  secretName: ""
+connections:
+  postgresql:
+    passwordFromSecret: true
+    passwordSecretName: ""
+    passwordKey: password
+  rabbitmq:
+    usernameFromSecret: true
+    usernameSecretName: ""
+    usernameKey: username
+    passwordFromSecret: true
+    passwordSecretName: ""
+    passwordKey: password
+  redis:
+    passwordFromSecret: false
+    passwordSecretName: ""
+    passwordKey: redis-password
+config: {}
+secrets: {}
+extraEnv: []
+processes:
+  fts-updater:
+    enabled: true
+    resources: {}
+  scheduled-emails:
+    enabled: true
+    resources: {}
+  scheduled-messages:
+    enabled: true
+    resources: {}
+  email-server:
+    enabled: false
+    resources: {}
+service:
+  enabled: false
+  type: ClusterIP
+  port: 80
+  annotations: {}

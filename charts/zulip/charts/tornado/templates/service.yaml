@@ -1,0 +1,30 @@
+{{- if .Values.enabled }}
+{{- range $port := .Values.ports }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tornado.portName" (dict "root" $ "port" $port) }}
+  labels:
+    {{- include "tornado.labels" $ | nindent 4 }}
+    app.kubernetes.io/tornado-port: {{ $port | quote }}
+  {{- with $.Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: tornado
+      port: {{ $port }}
+      {{- if $.Values.localhostProxy.enabled }}
+      targetPort: tornado-proxy
+      {{- else }}
+      targetPort: tornado
+      {{- end }}
+      protocol: TCP
+  selector:
+    {{- include "tornado.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/tornado-port: {{ $port | quote }}
+{{- end }}
+{{- end }}

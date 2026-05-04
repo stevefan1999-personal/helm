@@ -1,0 +1,21 @@
+{{- if and .Values.enabled .Values.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ default (include "web.baseName" .) .Values.service.name | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "web.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort | default "http" }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "web.selectorLabels" . | nindent 4 }}
+{{- end }}

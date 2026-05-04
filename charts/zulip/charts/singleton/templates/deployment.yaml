@@ -1,0 +1,97 @@
+{{- if .Values.enabled }}
+{{- if ne (int .Values.replicas) 1 }}
+{{- fail "singleton.replicas must be 1 because cron, scheduled delivery, email-server, and FTS updates are singleton processes" }}
+{{- end }}
+{{- range $name, $process := .Values.processes }}
+{{- $enabled := true }}
+{{- if hasKey $process "enabled" }}{{- $enabled = $process.enabled }}{{- end }}
+{{- if $enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "singleton.processName" (dict "root" $ "name" $name) }}
+  labels:
+    {{- include "singleton.processLabels" (dict "root" $ "name" $name) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "singleton.processSelectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "singleton.processSelectorLabels" (dict "root" $ "name" $name) | nindent 8 }}
+        {{- with $.Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with (get $process "podLabels") }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/global-zulip: {{ toJson (get ($.Values.global | default dict) "zulip" | default dict) | sha256sum }}
+        checksum/runtime-name: {{ include "singleton.runtimeConfigMapName" $ | sha256sum }}
+        checksum/app-config-name: {{ include "singleton.appConfigMapName" $ | sha256sum }}
+        checksum/config: {{ toJson $.Values.config | sha256sum }}
+        checksum/secrets: {{ toJson $.Values.secrets | sha256sum }}
+        {{- with $.Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with (get $process "podAnnotations") }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- $imagePullSecrets := include "singleton.imagePullSecrets" $ | trim }}
+      {{- if $imagePullSecrets }}
+      imagePullSecrets:
+        {{- $imagePullSecrets | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "singleton.serviceAccountName" $ }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- $initContainers := include "singleton.initContainers" $ | trim }}
+      {{- if $initContainers }}
+      initContainers:
+        {{- $initContainers | nindent 8 }}
+      {{- end }}
+      containers:
+        {{- with $.Values.sidecars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        - name: singleton
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          image: {{ include "singleton.image" $ | quote }}
+          imagePullPolicy: {{ include "singleton.imagePullPolicy" $ }}
+          command:
+            - /bin/bash
+            - /opt/zulip-k8s/run-singleton.sh
+          volumeMounts:
+            {{- include "singleton.volumeMounts" $ | nindent 12 }}
+          envFrom:
+            {{- include "singleton.envFrom" $ | nindent 12 }}
+          env:
+            {{- include "singleton.secretEnv" $ | nindent 12 }}
+            - name: ZULIP_K8S_ROLE
+              value: singleton
+            - name: ZULIP_SINGLETON_PROCESS
+              value: {{ $name | quote }}
+          resources:
+            {{- toYaml (get $process "resources" | default $.Values.resources) | nindent 12 }}
+      volumes:
+        {{- include "singleton.podVolumes" $ | nindent 8 }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

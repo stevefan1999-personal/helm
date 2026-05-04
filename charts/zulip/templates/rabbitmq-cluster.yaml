@@ -1,0 +1,45 @@
+{{- if .Values.rabbitmq.enabled }}
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: {{ include "zulip.rabbitmq.name" . }}
+  labels:
+    {{- include "zulip.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.rabbitmq.replicas }}
+  image: {{ .Values.rabbitmq.image | quote }}
+  service:
+    type: {{ .Values.rabbitmq.service.type }}
+  persistence:
+    storage: {{ .Values.rabbitmq.persistence.storage | quote }}
+    {{- if .Values.rabbitmq.persistence.storageClassName }}
+    storageClassName: {{ .Values.rabbitmq.persistence.storageClassName | quote }}
+    {{- end }}
+  {{- with .Values.rabbitmq.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if or .Values.rabbitmq.rabbitmq.additionalConfig .Values.rabbitmq.rabbitmq.additionalPlugins .Values.rabbitmq.rabbitmq.envConfig }}
+  rabbitmq:
+    {{- if .Values.rabbitmq.rabbitmq.additionalConfig }}
+    additionalConfig: |
+      {{- .Values.rabbitmq.rabbitmq.additionalConfig | nindent 6 }}
+    {{- end }}
+    {{- with .Values.rabbitmq.rabbitmq.additionalPlugins }}
+    additionalPlugins:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- if .Values.rabbitmq.rabbitmq.envConfig }}
+    envConfig: |
+      {{- .Values.rabbitmq.rabbitmq.envConfig | nindent 6 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.rabbitmq.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.rabbitmq.override }}
+  override:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

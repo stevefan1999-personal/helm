@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        chart: [netbird, netbird-combined, tuwunel]
+        chart: [netbird, netbird-combined, tuwunel, zulip]
     steps:
     - uses: actions/checkout@v4
       with:
@@ -40,6 +40,7 @@ jobs:
         helm unittest charts/netbird
         helm unittest charts/netbird-combined
         helm unittest charts/tuwunel
+        helm unittest charts/zulip
 
   template:
     runs-on: ubuntu-latest
@@ -95,6 +96,21 @@ jobs:
           name: k0s-acceptance
           args: >-
             -f charts/tuwunel/acceptance/values-k0s.yaml
+        - chart: zulip
+          name: default
+          args: ""
+        - chart: zulip
+          name: simple
+          args: >-
+            -f charts/zulip/ci/simple-values.yaml
+        - chart: zulip
+          name: external-services
+          args: >-
+            -f charts/zulip/ci/external-services-values.yaml
+        - chart: zulip
+          name: split-roles
+          args: >-
+            -f charts/zulip/ci/split-roles-values.yaml
     steps:
     - uses: actions/checkout@v4
       with:

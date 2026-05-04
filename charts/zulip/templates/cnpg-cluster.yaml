@@ -1,0 +1,95 @@
+{{- if .Values.cnpg.enabled }}
+{{- $initdb := .Values.cnpg.initdb | default dict }}
+{{- $pgroonga := .Values.cnpg.pgroonga | default dict }}
+{{- $postInitApplicationSQL := list }}
+{{- with (get $initdb "postInitApplicationSQL") }}
+{{- $postInitApplicationSQL = concat $postInitApplicationSQL . }}
+{{- end }}
+{{- if and (get $pgroonga "enabled") (get $pgroonga "createExtension") }}
+{{- $postInitApplicationSQL = append $postInitApplicationSQL "CREATE EXTENSION IF NOT EXISTS pgroonga;" }}
+{{- end }}
+{{- if and .Values.cnpg.auth.password (not .Values.cnpg.auth.existingSecret) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "zulip.cnpg.appSecretName" . }}
+  labels:
+    {{- include "zulip.labels" . | nindent 4 }}
+type: kubernetes.io/basic-auth
+stringData:
+  {{ .Values.cnpg.auth.usernameKey | default "username" }}: {{ .Values.cnpg.auth.username | quote }}
+  {{ .Values.cnpg.auth.passwordKey | default "password" }}: {{ .Values.cnpg.auth.password | quote }}
+---
+{{- end }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "zulip.cnpg.name" . }}
+  labels:
+    {{- include "zulip.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.cnpg.instances }}
+  imageName: {{ .Values.cnpg.imageName | quote }}
+  imagePullPolicy: {{ .Values.cnpg.imagePullPolicy }}
+  {{- with .Values.cnpg.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.cnpg.auth.database | quote }}
+      owner: {{ .Values.cnpg.auth.username | quote }}
+      {{- with (get $initdb "encoding") }}
+      encoding: {{ . | quote }}
+      {{- end }}
+      {{- with (get $initdb "localeCollate") }}
+      localeCollate: {{ . | quote }}
+      {{- end }}
+      {{- with (get $initdb "localeCType") }}
+      localeCType: {{ . | quote }}
+      {{- end }}
+      {{- if or .Values.cnpg.auth.existingSecret .Values.cnpg.auth.password }}
+      secret:
+        name: {{ include "zulip.cnpg.appSecretName" . }}
+      {{- end }}
+      {{- with $postInitApplicationSQL }}
+      postInitApplicationSQL:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  storage:
+    size: {{ .Values.cnpg.storage.size | quote }}
+    {{- if .Values.cnpg.storage.storageClass }}
+    storageClass: {{ .Values.cnpg.storage.storageClass | quote }}
+    {{- end }}
+  {{- if .Values.cnpg.walStorage.enabled }}
+  walStorage:
+    size: {{ .Values.cnpg.walStorage.size | quote }}
+    {{- if .Values.cnpg.walStorage.storageClass }}
+    storageClass: {{ .Values.cnpg.walStorage.storageClass | quote }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.cnpg.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.cnpg.monitoring }}
+  monitoring:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.cnpg.backup }}
+  backup:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.cnpg.postgresql }}
+  postgresql:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.cnpg.inheritedMetadata }}
+  inheritedMetadata:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.cnpg.managed }}
+  managed:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

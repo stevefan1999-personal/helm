@@ -1,0 +1,143 @@
+suite: Web and Django Deployments
+templates:
+  - charts/web/templates/deployment.yaml
+tests:
+  - it: propagates custom pod labels and annotations to the nginx gateway
+    values:
+      - ../ci/metadata-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: RELEASE-NAME-zulip-web
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: web
+      - equal:
+          path: spec.template.metadata.labels.custom/pod-label
+          value: pod-value
+      - equal:
+          path: spec.template.metadata.annotations.custom/pod-annotation
+          value: pod-annotation-value
+
+  - it: renders valueFrom for global native secret references on the Django pod
+    values:
+      - ../ci/valuefrom-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: RELEASE-NAME-zulip-django
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SECRET_secret_key
+            valueFrom:
+              secretKeyRef:
+                name: zulip-secrets
+                key: secret-key
+
+  - it: includes sidecar containers on the nginx gateway
+    values:
+      - ../ci/sidecar-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: RELEASE-NAME-zulip-web
+    asserts:
+      - contains:
+          path: spec.template.spec.containers
+          content:
+            name: backup-agent
+            image: busybox:latest
+            command:
+              - sleep
+              - infinity
+
+  - it: consumes the shared env ConfigMap and Secret in the Django pod
+    values:
+      - ../ci/external-services-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: RELEASE-NAME-zulip-django
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: RELEASE-NAME-zulip-env
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: RELEASE-NAME-zulip-env
+              optional: true
+
+  - it: uses valueFrom when operator/existingSecret values are propagated globally
+    values:
+      - ../ci/existing-secrets-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: RELEASE-NAME-zulip-django
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SECRET_postgres_password
+            valueFrom:
+              secretKeyRef:
+                name: my-pg-secret
+                key: password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SECRET_rabbitmq_password
+            valueFrom:
+              secretKeyRef:
+                name: my-rabbitmq-secret
+                key: password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SECRET_redis_password
+            valueFrom:
+              secretKeyRef:
+                name: my-redis-secret
+                key: redis-password
+
+  - it: uses valueFrom for external service passwords propagated globally
+    values:
+      - ../ci/external-valuefrom-values.yaml
+    documentSelector:
+      path: metadata.name
+      value: RELEASE-NAME-zulip-django
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SECRET_postgres_password
+            valueFrom:
+              secretKeyRef:
+                name: external-pg-secret
+                key: password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SECRET_rabbitmq_password
+            valueFrom:
+              secretKeyRef:
+                name: external-rabbitmq-secret
+                key: password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SECRET_memcached_password
+            valueFrom:
+              secretKeyRef:
+                name: external-memcached-secret
+                key: password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SECRET_redis_password
+            valueFrom:
+              secretKeyRef:
+                name: external-redis-secret
+                key: password

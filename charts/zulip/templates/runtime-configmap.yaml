@@ -1,0 +1,178 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zulip.runtimeConfigMapName" . }}
+  labels:
+    {{- include "zulip.labels" . | nindent 4 }}
+data:
+  prepare.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    mkdir -p /etc/zulip /var/log/zulip/queue_error /var/log/zulip/queue_stats \
+      /home/zulip/tornado /srv/zulip-locks /srv/zulip-emoji-cache \
+      /srv/zulip-uploaded-files-cache /home/zulip/uploads/files /home/zulip/uploads/avatars \
+      /home/zulip/deployments/current/var
+
+    cp -a /etc/zulip-template/. /etc/zulip/
+    printf '%s\n' {{ include "zulip.remoteCachePrefix" . | quote }} \
+      >/home/zulip/deployments/current/var/remote_cache_prefix
+
+    {
+      echo '[secrets]'
+      env | sort | while IFS='=' read -r key value; do
+        case "${key}" in
+          ZULIP_SECRET_*)
+            secret_name="${key#ZULIP_SECRET_}"
+            printf '%s = %s\n' "${secret_name}" "${value}"
+            ;;
+        esac
+      done
+    } >/etc/zulip/zulip-secrets.conf
+
+    python3 - <<'PY' >>/etc/zulip/settings.py
+    import os
+    for key, value in sorted(os.environ.items()):
+        if key.startswith("ZULIP_SETTING_"):
+            print(f"{key.removeprefix('ZULIP_SETTING_')} = {value!r}")
+    PY
+
+    chown -R zulip:zulip /etc/zulip /var/log/zulip /home/zulip/tornado \
+      /srv/zulip-locks /srv/zulip-emoji-cache /srv/zulip-uploaded-files-cache \
+      /home/zulip/uploads /home/zulip/deployments/current/var || true
+    chmod 0640 /etc/zulip/zulip-secrets.conf
+
+  wait-postgresql.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /opt/zulip-k8s/prepare.sh
+    cd /home/zulip/deployments/current
+    for attempt in $(seq 1 "${ZULIP_K8S_WAIT_ATTEMPTS:-120}"); do
+      if runuser -u zulip -- /home/zulip/deployments/current/manage.py shell -c 'from django.conf import settings; import socket; host = settings.DATABASES["default"]["HOST"]; port = int(settings.DATABASES["default"].get("PORT") or 5432); conn = socket.create_connection((host, port), timeout=5); conn.close(); print(f"postgres reachable at {host}:{port}")' >/tmp/zulip-wait-postgresql.log 2>&1; then
+        cat /tmp/zulip-wait-postgresql.log
+        exit 0
+      fi
+      cat /tmp/zulip-wait-postgresql.log >&2 || true
+      echo "Waiting for PostgreSQL (${attempt}/${ZULIP_K8S_WAIT_ATTEMPTS:-120})" >&2
+      sleep "${ZULIP_K8S_WAIT_SLEEP_SECONDS:-5}"
+    done
+    echo "PostgreSQL did not become reachable" >&2
+    exit 1
+
+  wait-object-storage.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /opt/zulip-k8s/prepare.sh
+    cd /home/zulip/deployments/current
+    for attempt in $(seq 1 "${ZULIP_K8S_WAIT_ATTEMPTS:-120}"); do
+      if runuser -u zulip -- /home/zulip/deployments/current/manage.py shell -c 'from django.conf import settings; from zerver.lib.upload.s3 import get_bucket; buckets = [] if settings.LOCAL_UPLOADS_DIR is not None else list(dict.fromkeys(filter(None, [getattr(settings, "S3_AUTH_UPLOADS_BUCKET", None), getattr(settings, "S3_AVATAR_BUCKET", None)]))); [get_bucket(bucket).meta.client.head_bucket(Bucket=bucket) for bucket in buckets]; print("object storage guard ok: " + (", ".join(buckets) if buckets else "skipped"))' >/tmp/zulip-wait-object-storage.log 2>&1; then
+        cat /tmp/zulip-wait-object-storage.log
+        exit 0
+      fi
+      cat /tmp/zulip-wait-object-storage.log >&2 || true
+      echo "Waiting for object storage (${attempt}/${ZULIP_K8S_WAIT_ATTEMPTS:-120})" >&2
+      sleep "${ZULIP_K8S_WAIT_SLEEP_SECONDS:-5}"
+    done
+    echo "Object storage did not become reachable" >&2
+    exit 1
+
+  wait-database-migrations.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /opt/zulip-k8s/prepare.sh
+    cd /home/zulip/deployments/current
+    for attempt in $(seq 1 "${ZULIP_K8S_WAIT_ATTEMPTS:-120}"); do
+      if runuser -u zulip -- /home/zulip/deployments/current/manage.py migrate --check --skip-checks >/tmp/zulip-wait-migrations.log 2>&1; then
+        echo "database migrations are complete"
+        exit 0
+      fi
+      cat /tmp/zulip-wait-migrations.log >&2 || true
+      echo "Waiting for Zulip migrations (${attempt}/${ZULIP_K8S_WAIT_ATTEMPTS:-120})" >&2
+      sleep "${ZULIP_K8S_WAIT_SLEEP_SECONDS:-5}"
+    done
+    echo "Zulip migrations did not complete" >&2
+    exit 1
+  run-nginx.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /opt/zulip-k8s/prepare.sh
+    exec nginx -c /etc/zulip/nginx.conf -g 'daemon off;'
+
+  run-django.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /opt/zulip-k8s/prepare.sh
+    cd /home/zulip/deployments/current
+    exec runuser -u zulip -- uv run --no-sync uwsgi --ini /etc/zulip/uwsgi.ini
+
+  run-tornado.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${ZULIP_K8S_TORNADO_PORT:?ZULIP_K8S_TORNADO_PORT is required}"
+    /opt/zulip-k8s/prepare.sh
+    cd /home/zulip/deployments/current
+    exec runuser -u zulip -- /home/zulip/deployments/current/manage.py runtornado "0.0.0.0:${ZULIP_K8S_TORNADO_PORT}" --skip-checks
+
+  run-worker.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /opt/zulip-k8s/prepare.sh
+    cd /home/zulip/deployments/current
+    if [[ -n "${ZULIP_WORKER_QUEUE:-}" ]]; then
+      args=(--queue_name="${ZULIP_WORKER_QUEUE}" --skip-checks)
+      if [[ -n "${ZULIP_WORKER_NUM:-}" ]]; then
+        args+=(--worker_num "${ZULIP_WORKER_NUM}")
+      fi
+    else
+      read -r -a queues <<<"${ZULIP_WORKER_QUEUES:?ZULIP_WORKER_QUEUES or ZULIP_WORKER_QUEUE is required}"
+      args=(--multi_threaded "${queues[@]}" --skip-checks)
+    fi
+    exec runuser -u zulip -- /home/zulip/deployments/current/manage.py process_queue "${args[@]}"
+
+  run-singleton.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${ZULIP_SINGLETON_PROCESS:?ZULIP_SINGLETON_PROCESS is required}"
+    /opt/zulip-k8s/prepare.sh
+    cd /home/zulip/deployments/current
+    case "${ZULIP_SINGLETON_PROCESS}" in
+      fts-updater)
+        exec runuser -u zulip -- /usr/local/bin/process_fts_updates
+        ;;
+      scheduled-emails)
+        exec runuser -u zulip -- /home/zulip/deployments/current/manage.py deliver_scheduled_emails --skip-checks
+        ;;
+      scheduled-messages)
+        exec runuser -u zulip -- /home/zulip/deployments/current/manage.py deliver_scheduled_messages --skip-checks
+        ;;
+      email-server)
+        exec /home/zulip/deployments/current/manage.py email_server --user zulip --group zulip
+        ;;
+      *)
+        echo "Unknown singleton process: ${ZULIP_SINGLETON_PROCESS}" >&2
+        exit 1
+        ;;
+    esac
+
+  run-migrate.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /opt/zulip-k8s/prepare.sh
+    cd /home/zulip/deployments/current
+    runuser -u zulip -- ./manage.py check
+    runuser -u zulip -- ./manage.py migrate --noinput
+    runuser -u zulip -- ./manage.py createcachetable third_party_api_results
+
+  run-tusd.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /opt/zulip-k8s/prepare.sh
+    cd /home/zulip/deployments/current
+    exec runuser -u zulip -- /home/zulip/deployments/current/manage.py runtusd "0.0.0.0:${ZULIP_TUSD_PORT:-9900}" "http://127.0.0.1:${ZULIP_DJANGO_PORT:-8080}/api/internal/tusd"
+
+  run-katex.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    /opt/zulip-k8s/prepare.sh
+    export SHARED_SECRET="${ZULIP_SECRET_shared_secret:?ZULIP_SECRET_shared_secret is required}"
+    exec runuser -u zulip -- /srv/zulip-node/bin/node /home/zulip/prod-static/webpack-bundles/katex_server.js "${ZULIP_KATEX_PORT:-9700}"

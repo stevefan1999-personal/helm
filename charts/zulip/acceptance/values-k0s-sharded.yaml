@@ -1,0 +1,22 @@
+global:
+  zulip:
+    configRevision: sharded-9800-9801-9802
+
+web:
+  tornadoProxy:
+    ports:
+      - 9800
+      - 9801
+      - 9802
+
+tornado:
+  ports:
+    - 9800
+    - 9801
+    - 9802
+
+zulip:
+  tornadoSharding:
+    enabled: true
+    rules:
+      "9800_9801_9802": 192.168.2.190.nip.io

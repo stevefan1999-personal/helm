@@ -27,6 +27,7 @@ The following charts are available in this repository:
 | [netbird](#netbird-chart) | 0.4.0 | 0.70.4 | A Helm chart for deploying NetBird, the open-source VPN that makes it easy to create secure private networks. |
 | [netbird-combined](charts/netbird-combined) | 0.3.0 | 0.70.4 | A single-pod NetBird deployment with management, signal, relay, STUN, dashboard, and optional proxy containers. |
 | [tuwunel](charts/tuwunel) | 0.1.0 | latest | A Helm chart for deploying the Tuwunel Matrix homeserver with OIDC, S3 media, ingress/TLS, and optional LiveKit MatrixRTC. |
+| [zulip](charts/zulip) | 1.13.1 | 12.0-0 | A Kubernetes-native Zulip meta chart with role subcharts, operator-managed PostgreSQL/RabbitMQ, and in-chart cache services. |
 
 ---
 
@@ -92,6 +93,16 @@ The `netbird` chart has the following dependencies:
 The `tuwunel` chart deploys a single Tuwunel Matrix homeserver with configurable OIDC/OAuth providers, ingress/TLS annotations for cert-manager, external S3-compatible media storage, an optional bundled LiveKit subchart for MatrixRTC/Element Call, and an optional bundled Cinny subchart for a lightweight web client.
 
 Local k0s acceptance manifests are available under [`charts/tuwunel/acceptance`](charts/tuwunel/acceptance). The acceptance runner deploys Rauthy for OIDC, deploys the JuiceFS S3 gateway mock separately from the chart, enables the lightweight Cinny web client, uses a real `matrix-nio` Matrix client to exchange messages and media, restarts the data-bearing services, and verifies persistence.
+
+---
+
+## Zulip Chart
+
+The `zulip` chart is a Kubernetes-native meta chart for Zulip. The parent chart owns shared infrastructure and configuration, while role subcharts render the public web/Django, Tornado, worker, and singleton runtimes as separate Kubernetes objects.
+
+The chart can render CloudNativePG PostgreSQL and RabbitMQ Cluster Operator resources, or point Zulip at externally managed PostgreSQL, RabbitMQ, Redis, and Memcached services. Unit tests and CI values are available under [`charts/zulip/tests`](charts/zulip/tests) and [`charts/zulip/ci`](charts/zulip/ci).
+
+Local k0s acceptance manifests are available under [`charts/zulip/acceptance`](charts/zulip/acceptance). The acceptance runner deploys a JuiceFS-backed S3 fixture, installs Zulip with object storage enabled, creates users/channels/messages through Zulip APIs, verifies Tornado event delivery, and checks post-restart persistence.
 
 ## Local Development
 

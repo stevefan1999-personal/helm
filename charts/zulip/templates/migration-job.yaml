@@ -1,0 +1,77 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "zulip.fullname" . }}-migrate
+  labels:
+    {{- include "zulip.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  {{- if .Values.migration.useHelmHooks }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-weight": {{ .Values.migration.hookWeight | quote }}
+  {{- end }}
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "zulip.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "zulip.serviceAccountName" . }}
+      {{- if .Values.migration.dependencyGuard.enabled }}
+      initContainers:
+        - name: wait-postgresql
+          image: {{ printf "%s:%s" .Values.global.zulip.image.repository .Values.global.zulip.image.tag | quote }}
+          imagePullPolicy: {{ .Values.global.zulip.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - /opt/zulip-k8s/wait-postgresql.sh
+          envFrom:
+            {{- include "zulip.envFrom" . | nindent 12 }}
+          env:
+            {{- include "zulip.env" . | nindent 12 }}
+            - name: ZULIP_K8S_WAIT_ATTEMPTS
+              value: {{ .Values.migration.dependencyGuard.attempts | default 120 | quote }}
+            - name: ZULIP_K8S_WAIT_SLEEP_SECONDS
+              value: {{ .Values.migration.dependencyGuard.sleepSeconds | default 5 | quote }}
+          volumeMounts:
+            {{- include "zulip.k8sVolumeMounts" . | nindent 12 }}
+        - name: wait-object-storage
+          image: {{ printf "%s:%s" .Values.global.zulip.image.repository .Values.global.zulip.image.tag | quote }}
+          imagePullPolicy: {{ .Values.global.zulip.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - /opt/zulip-k8s/wait-object-storage.sh
+          envFrom:
+            {{- include "zulip.envFrom" . | nindent 12 }}
+          env:
+            {{- include "zulip.env" . | nindent 12 }}
+            - name: ZULIP_K8S_WAIT_ATTEMPTS
+              value: {{ .Values.migration.dependencyGuard.attempts | default 120 | quote }}
+            - name: ZULIP_K8S_WAIT_SLEEP_SECONDS
+              value: {{ .Values.migration.dependencyGuard.sleepSeconds | default 5 | quote }}
+          volumeMounts:
+            {{- include "zulip.k8sVolumeMounts" . | nindent 12 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ printf "%s:%s" .Values.global.zulip.image.repository .Values.global.zulip.image.tag | quote }}
+          imagePullPolicy: {{ .Values.global.zulip.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - /opt/zulip-k8s/run-migrate.sh
+          envFrom:
+            {{- include "zulip.envFrom" . | nindent 12 }}
+          env:
+            {{- include "zulip.env" . | nindent 12 }}
+          volumeMounts:
+            {{- include "zulip.k8sVolumeMounts" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+      volumes:
+        {{- include "zulip.k8sVolumes" . | nindent 8 }}
+{{- end }}

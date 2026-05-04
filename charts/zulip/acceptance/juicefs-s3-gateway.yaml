@@ -1,0 +1,297 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zulip-juicefs-s3-data
+  labels:
+    app.kubernetes.io/name: zulip-juicefs-s3
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zulip-juicefs-s3
+stringData:
+  MINIO_ROOT_USER: minioadmin
+  MINIO_ROOT_PASSWORD: minioadmin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zulip-juicefs-s3
+  labels:
+    app.kubernetes.io/name: zulip-juicefs-s3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zulip-juicefs-s3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zulip-juicefs-s3
+    spec:
+      initContainers:
+        - name: format
+          image: juicedata/mount:ce-v1.3.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              mkdir -p /data/objects
+              if [ ! -f /data/juicefs.db ]; then
+                juicefs format --storage file --bucket /data/objects sqlite3:///data/juicefs.db zulip-e2e-uploads
+              else
+                echo "Reusing existing JuiceFS metadata at /data/juicefs.db"
+              fi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      containers:
+        - name: gateway
+          image: juicedata/mount:ce-v1.3.0
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: zulip-juicefs-s3
+          command:
+            - sh
+            - -ec
+            - juicefs gateway --multi-buckets sqlite3:///data/juicefs.db 0.0.0.0:9000
+          ports:
+            - name: s3
+              containerPort: 9000
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: s3
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: s3
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: zulip-juicefs-s3-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zulip-juicefs-s3
+  labels:
+    app.kubernetes.io/name: zulip-juicefs-s3
+spec:
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: s3
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: zulip-juicefs-s3
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zulip-juicefs-s3-tls
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDuzCCAqOgAwIBAgIUbzggph3FLvQQAha6f3g4uga69oIwDQYJKoZIhvcNAQEL
+    BQAwHzEdMBsGA1UEAwwUenVsaXAtanVpY2Vmcy1zMy10bHMwHhcNMjYwNTA0MTAx
+    MzI3WhcNMzYwNTAxMTAxMzI3WjAfMR0wGwYDVQQDDBR6dWxpcC1qdWljZWZzLXMz
+    LXRsczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANRMs8a3J3De3cSX
+    amZTlvAeI80M0W8nzPmuiY0cfBv+Llgnp3PirfHvk2JpuvyoUX2mjoToH8vQU/ZU
+    EOABC06LP1DnBZ7+hy/pB5jV9Jjl8zDee3WovYSLHKA3j9JIDwAIxqDmW9Vh1ezm
+    Lx/dqX+urmnUH1pOoiwdNAHhBh6FZN36DpgO+OWFvntrZg9ucK5Tf+6KLYhMXahF
+    qMJKb9ddsr77MXapmJG6Od56ViIm1yaIdH0qoYHqjva4MKeviF0QMdUbeLAFe41m
+    T5CTi9j7X+xujPfthwkfbNBmZVoOe3YvjkS1qH/UN1sA/r/xKoTMS02cXa+9WFW4
+    wvz+DV8CAwEAAaOB7jCB6zAdBgNVHQ4EFgQUJkRyGSv24j5NIwsqOV+rLbIaawYw
+    HwYDVR0jBBgwFoAUJkRyGSv24j5NIwsqOV+rLbIaawYwDwYDVR0TAQH/BAUwAwEB
+    /zCBlwYDVR0RBIGPMIGMghR6dWxpcC1qdWljZWZzLXMzLXRsc4IeenVsaXAtanVp
+    Y2Vmcy1zMy10bHMuenVsaXAtZTJlgiJ6dWxpcC1qdWljZWZzLXMzLXRscy56dWxp
+    cC1lMmUuc3ZjgjB6dWxpcC1qdWljZWZzLXMzLXRscy56dWxpcC1lMmUuc3ZjLmNs
+    dXN0ZXIubG9jYWwwDQYJKoZIhvcNAQELBQADggEBAGBlFQ5M9v6zV2O8EaSuu7Ua
+    HdewCP8ekawFuJOGOTO2Ba8Smz6dtg9G9L1zj8KVV6dukwpvWCrLTvN7tWg7oNub
+    E5fd6dvaQn0K/0dTfCDTeEgDkFdCBbW+CLo91ISCMpQTQCutoshTMXq3Jdp73lEy
+    otknxi92zgpY0vqSg/Nn4qwSwr4UBTBkRDB9R3spjhjcqCn7ADbrkOWFDUM1Voag
+    t232QDb23JsN2wiPPGYMlNBBI2ZROQiVHLROXdD5zAVNF07jcA+Is7y54iMHMOoF
+    KFVrGPpF1y6gywxvyxqCHWsTlxQGAIiDHfvVwlLIL0+r/lhmSC1WipScLFLQgbY=
+    -----END CERTIFICATE-----
+  tls.key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDUTLPGtydw3t3E
+    l2pmU5bwHiPNDNFvJ8z5romNHHwb/i5YJ6dz4q3x75Niabr8qFF9po6E6B/L0FP2
+    VBDgAQtOiz9Q5wWe/ocv6QeY1fSY5fMw3nt1qL2EixygN4/SSA8ACMag5lvVYdXs
+    5i8f3al/rq5p1B9aTqIsHTQB4QYehWTd+g6YDvjlhb57a2YPbnCuU3/uii2ITF2o
+    RajCSm/XXbK++zF2qZiRujneelYiJtcmiHR9KqGB6o72uDCnr4hdEDHVG3iwBXuN
+    Zk+Qk4vY+1/sboz37YcJH2zQZmVaDnt2L45Etah/1DdbAP6/8SqEzEtNnF2vvVhV
+    uML8/g1fAgMBAAECggEAOaoP1rTe8KiIYiKikuK3h8cYAFUv+do8scD3ua14BH55
+    BhbXRAHZL3LcfImtcX0ijVeVNIJ8SHbwp2LUJpQCBzaJXycw/qux+pB4MMpEotcq
+    xCZaMG5B8+N5RgdxeDN8Z4z6rq+DWCU33x3yxNwHcxf2ZeZpEbV0FTlla/E8IUOp
+    WvuRuI2ejYqg77fZT7g5h2+WfR1bcC5S3zGEC2xpfgLIHRiszPzNzxEhRtLFoFtu
+    DOJ4qU1yVH+zc/SoRcA9yMfqNmR/Jw5aL/sCIA54QanDSU7/ow+r7rLpSQfUeZIT
+    pDqzSGCK88UwgdJMrLOxraFLZ3CWgJ2FqZYmW+UbqQKBgQD5+i6gQ7AaDq7zDQw7
+    v4qQ95K8Q8NNRpxoSxUUxOt7dgP3XW/bkUPmdM65KZXcIigjwVJatilG0xIxfZWc
+    Sdr1B04pt4qntFBGYq/cW3A7TGvWZCdAwOO4wMYV2dou0b+/UQ8yUboBqwkQPHYf
+    RbnIyviYdiRo38ygj1i8qg0BtQKBgQDZaiFzBB5XJm+7ZB77Q1AwiosfnEhmT38p
+    iBkEqtv8cSp5Nv5JOyh6VIETqz3zM/fDXk0EOSIP+S5k7XaQBHykHhezYIAC4MsX
+    ptznZHjr6ExVpNXjY7Ow8Ioe+lQMDxhBf2RyZalM1D67C1ipN5GIOECqIWcLeWEh
+    v55eOKkPQwKBgQDKhwjJra16nxTdNGAJ9FimtP58a4ZLEH9d/B7bUePbhjUWb+xV
+    fy79AvwNhoS08jOFLHa1qcptaErgL/hLxIaSaNXJ9LtwviUfsYr7xFV8paDk9QXc
+    b6rQH9cdEwCzWBq7PUhLo21JNrJEJkgpdAtehBu/IlDDazbViu4BBOE+1QKBgD8L
+    Y3+ypgmnf6bbNZCuyEYLJqSX8PaZ/snQSVDtKrVdK2/S3pHlsasnbfaCJYisfSAN
+    7E9ZMeNn4mgp48OHSY1dnInLZdNv0/Sb0lrW66mcxuXe0pcJhkW8upCZDl4g0mvL
+    wRjbGejJcxdSBveqwWy6wyWSYgsVu3DJ2+Z+j6d5AoGAGu9w1xIfmowesWVBys+0
+    MMaQjCGO+Yn7x5Y9v5zR318msIjXm3f2LPI2vQGCnoEowjMP0n5Atj96nj41K6d1
+    YmBjZlom5HwxoV2WdrQ2LGWsHybyYCIWMS447ONCQpgmtoN2sIibTSZKH8mlivqz
+    Nwh3pDZJRWjwO8sD01u4w2E=
+    -----END PRIVATE KEY-----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zulip-juicefs-s3-tls
+data:
+  haproxy.cfg: |
+    global
+        log stdout format raw local0
+        maxconn 2000
+
+    defaults
+        log global
+        mode tcp
+        option tcplog
+        timeout connect 5s
+        timeout client 1h
+        timeout server 1h
+
+    frontend s3_tls
+        bind *:9443 ssl crt /tmp/tls.pem
+        default_backend s3_plain
+
+    backend s3_plain
+        server s3 zulip-juicefs-s3:9000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zulip-juicefs-s3-tls
+  labels:
+    app.kubernetes.io/name: zulip-juicefs-s3-tls
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zulip-juicefs-s3-tls
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zulip-juicefs-s3-tls
+    spec:
+      containers:
+        - name: haproxy
+          image: haproxy:3.2-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              cat /etc/haproxy/tls/tls.crt /etc/haproxy/tls/tls.key >/tmp/tls.pem
+              exec haproxy -f /usr/local/etc/haproxy/haproxy.cfg -db
+          ports:
+            - name: https
+              containerPort: 9443
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: https
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/etc/haproxy/haproxy.cfg
+              subPath: haproxy.cfg
+              readOnly: true
+            - name: tls
+              mountPath: /etc/haproxy/tls
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: zulip-juicefs-s3-tls
+        - name: tls
+          secret:
+            secretName: zulip-juicefs-s3-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zulip-juicefs-s3-tls
+  labels:
+    app.kubernetes.io/name: zulip-juicefs-s3-tls
+spec:
+  ports:
+    - name: https
+      port: 443
+      targetPort: https
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: zulip-juicefs-s3-tls
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zulip-juicefs-create-buckets
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-buckets
+          image: amazon/aws-cli:2.24.13
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: zulip-juicefs-s3
+                  key: MINIO_ROOT_USER
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zulip-juicefs-s3
+                  key: MINIO_ROOT_PASSWORD
+            - name: AWS_EC2_METADATA_DISABLED
+              value: "true"
+          command:
+            - sh
+            - -ec
+            - |
+              until aws --endpoint-url http://zulip-juicefs-s3:9000 s3 ls >/dev/null 2>&1; do
+                sleep 2
+              done
+              aws --endpoint-url http://zulip-juicefs-s3:9000 s3 mb s3://zulip-uploads || true
+              aws --endpoint-url http://zulip-juicefs-s3:9000 s3 mb s3://zulip-avatars || true
+              cat >/tmp/avatar-policy.json <<'JSON'
+              {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::zulip-avatars/*"]}]}
+              JSON
+              aws --endpoint-url http://zulip-juicefs-s3:9000 s3api put-bucket-policy --bucket zulip-avatars --policy file:///tmp/avatar-policy.json
+              aws --endpoint-url http://zulip-juicefs-s3:9000 s3 ls s3://zulip-uploads
+              aws --endpoint-url http://zulip-juicefs-s3:9000 s3 ls s3://zulip-avatars

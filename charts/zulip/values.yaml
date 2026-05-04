@@ -1,0 +1,627 @@
+## Default values for zulip.
+## This chart is a meta/umbrella chart: the parent renders shared infrastructure
+## and the role subcharts render Zulip web, Tornado, worker, and singleton pods.
+
+## Partially override zulip.fullname template for parent-managed resources.
+nameOverride: ""
+
+## Fully override zulip.fullname template for parent-managed resources. Prefer
+## global.zulip.name when role subchart names must follow the same base name.
+fullnameOverride: ""
+
+## Global values consumed by the role subcharts. The parent chart renders the
+## shared infrastructure (CNPG, RabbitMQ, Redis, Memcached, runtime/config
+## ConfigMaps, and Secret/ConfigMap env sources) and the
+## role subcharts use these names by convention.
+global:
+  zulip:
+    ## Optional base name shared by parent resources and role subcharts. Leave
+    ## empty to use the Helm release/fullname helpers.
+    name: ""
+    ## Optional native environment values visible to both parent and role
+    ## subcharts. Scalar values are rendered into the shared ConfigMap; valueFrom
+    ## maps are rendered inline in role pods.
+    extraEnv: {}
+    image:
+      repository: ghcr.io/zulip/zulip-server
+      tag: "12.0-0"
+      pullPolicy: IfNotPresent
+    imagePullSecrets: []
+    serviceAccountName: ""
+    envConfigMapName: ""
+    envSecretName: ""
+    ## Optional operator-controlled rollout nonce for shared ConfigMap/Secret
+    ## changes that role subcharts cannot checksum from inside Helm subchart
+    ## scope.
+    configRevision: ""
+    postgresql:
+      appSecretName: ""
+    rabbitmq:
+      defaultUserSecretName: ""
+    redis:
+      secretName: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+## Web role subchart. Owns the public Zulip Deployment, Service, and optional Ingress.
+web:
+  enabled: true
+  replicas: 1
+  appName: zulip
+  fullnameOverride: ""
+  serviceAccountName: ""
+  image: {}
+  imagePullSecrets: []
+  podLabels: {}
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  sidecars: []
+  dependencyGuard:
+    enabled: true
+    attempts: 120
+    sleepSeconds: 5
+  sharedEnv:
+    configMapName: ""
+    secretName: ""
+  connections:
+    postgresql:
+      passwordFromSecret: true
+      passwordSecretName: ""
+      passwordKey: password
+    rabbitmq:
+      usernameFromSecret: true
+      usernameSecretName: ""
+      usernameKey: username
+      passwordFromSecret: true
+      passwordSecretName: ""
+      passwordKey: password
+    redis:
+      passwordFromSecret: false
+      passwordSecretName: ""
+      passwordKey: redis-password
+  config: {}
+  secrets: {}
+  extraEnv: []
+  gateway:
+    containerPort: 80
+    resources: {}
+  django:
+    replicas: 1
+    port: 8080
+    uwsgiProcesses: 2
+    uwsgiListenBacklog: 128
+    harakiri: 55
+    resources: {}
+    podLabels: {}
+    podAnnotations: {}
+    service:
+      enabled: true
+      port: 8080
+      annotations: {}
+  tusd:
+    enabled: false
+    port: 9900
+    resources: {}
+    service:
+      port: 9900
+  katex:
+    enabled: false
+    port: 9700
+    resources: {}
+  camo:
+    enabled: false
+  tornadoProxy:
+    image:
+      repository: alpine/socat
+      tag: "1.8.0.3"
+      pullPolicy: IfNotPresent
+    ports:
+      - 9800
+    servicePrefix: ""
+    resources: {}
+  service:
+    enabled: true
+    name: ""
+    type: ClusterIP
+    port: 80
+    targetPort: http
+    annotations: {}
+  ingress:
+    enabled: false
+    name: ""
+    annotations: {}
+    hosts:
+      - host: zulip.example.com
+        paths:
+          - path: /
+    tls: []
+    className: ""
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+  probeHost: zulip.example.com
+
+## Tornado role subchart. Owns one internal Deployment and Service per configured port.
+tornado:
+  enabled: true
+  appName: zulip
+  fullnameOverride: ""
+  serviceAccountName: ""
+  image: {}
+  imagePullSecrets: []
+  ports:
+    - 9800
+  replicasPerShard: 1
+  podLabels: {}
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  sidecars: []
+  localhostProxy:
+    enabled: true
+    image:
+      repository: alpine/socat
+      tag: "1.8.0.3"
+      pullPolicy: IfNotPresent
+    portOffset: 10000
+    resources: {}
+  dependencyGuard:
+    enabled: true
+    attempts: 120
+    sleepSeconds: 5
+  sharedEnv:
+    configMapName: ""
+    secretName: ""
+  connections:
+    postgresql:
+      passwordFromSecret: true
+      passwordSecretName: ""
+      passwordKey: password
+    rabbitmq:
+      usernameFromSecret: true
+      usernameSecretName: ""
+      usernameKey: username
+      passwordFromSecret: true
+      passwordSecretName: ""
+      passwordKey: password
+    redis:
+      passwordFromSecret: false
+      passwordSecretName: ""
+      passwordKey: redis-password
+  config: {}
+  secrets: {}
+  extraEnv: []
+  service:
+    annotations: {}
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+
+## Queue worker role subchart. Horizontally scalable Zulip event workers.
+worker:
+  enabled: true
+  replicas: 1
+  appName: zulip
+  fullnameOverride: ""
+  serviceAccountName: ""
+  image: {}
+  imagePullSecrets: []
+  podLabels: {}
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  sidecars: []
+  dependencyGuard:
+    enabled: true
+    attempts: 120
+    sleepSeconds: 5
+  sharedEnv:
+    configMapName: ""
+    secretName: ""
+  connections:
+    postgresql:
+      passwordFromSecret: true
+      passwordSecretName: ""
+      passwordKey: password
+    rabbitmq:
+      usernameFromSecret: true
+      usernameSecretName: ""
+      usernameKey: username
+      passwordFromSecret: true
+      passwordSecretName: ""
+      passwordKey: password
+    redis:
+      passwordFromSecret: false
+      passwordSecretName: ""
+      passwordKey: redis-password
+  config: {}
+  secrets: {}
+  extraEnv: []
+  queues:
+    - deferred_work
+    - digest_emails
+    - email_mirror
+    - embed_links
+    - embedded_bots
+    - email_senders
+    - deferred_email_senders
+    - missedmessage_emails
+    - missedmessage_mobile_notifications
+    - outgoing_webhooks
+    - thumbnail
+    - user_activity
+    - user_activity_interval
+  groups:
+    default:
+      queues:
+        - deferred_work
+        - digest_emails
+        - email_mirror
+        - embed_links
+        - embedded_bots
+        - email_senders
+        - deferred_email_senders
+        - missedmessage_emails
+        - missedmessage_mobile_notifications
+        - outgoing_webhooks
+        - thumbnail
+        - user_activity
+        - user_activity_interval
+      resources: {}
+  shards:
+    mobileNotifications: 1
+    userActivity: 1
+  service:
+    enabled: false
+    type: ClusterIP
+    port: 80
+    annotations: {}
+
+## Singleton role subchart. Cron-like and delivery processes that must stay one replica.
+singleton:
+  enabled: true
+  replicas: 1
+  appName: zulip
+  fullnameOverride: ""
+  serviceAccountName: ""
+  image: {}
+  imagePullSecrets: []
+  podLabels: {}
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  sidecars: []
+  dependencyGuard:
+    enabled: true
+    attempts: 120
+    sleepSeconds: 5
+  sharedEnv:
+    configMapName: ""
+    secretName: ""
+  connections:
+    postgresql:
+      passwordFromSecret: true
+      passwordSecretName: ""
+      passwordKey: password
+    rabbitmq:
+      usernameFromSecret: true
+      usernameSecretName: ""
+      usernameKey: username
+      passwordFromSecret: true
+      passwordSecretName: ""
+      passwordKey: password
+    redis:
+      passwordFromSecret: false
+      passwordSecretName: ""
+      passwordKey: redis-password
+  config: {}
+  secrets: {}
+  extraEnv: []
+  processes:
+    fts-updater:
+      enabled: true
+      resources: {}
+    scheduled-emails:
+      enabled: true
+      resources: {}
+    scheduled-messages:
+      enabled: true
+      resources: {}
+    email-server:
+      enabled: false
+      resources: {}
+  service:
+    enabled: false
+    type: ClusterIP
+    port: 80
+    annotations: {}
+
+zulip:
+  ## Render [tornado_sharding] entries into /etc/zulip/zulip.conf and
+  ## /etc/zulip/sharding.json.
+  tornadoSharding:
+    enabled: false
+    rules: {}
+  settings:
+    externalHost: zulip.example.com
+    administratorEmail: admin@example.com
+    externalUriScheme: "https://"
+    authenticationBackends:
+      - zproject.backends.EmailAuthBackend
+    extraPython: ""
+  secrets:
+    secretKey: change-me-zulip-secret-key
+    sharedSecret: change-me-zulip-shared-secret
+    avatarSalt: change-me-zulip-avatar-salt
+  queueWorkers:
+    multiprocess: false
+  cache:
+    ## Zulip stores a remote_cache_prefix file on disk and uses it in all
+    ## memcached keys. Kubernetes pods do not share that file, so the chart
+    ## derives one stable release-wide prefix from this seed.
+    remoteCachePrefixSeed: ""
+  objectStorage:
+    enabled: false
+    uploadsBucket: ""
+    avatarBucket: ""
+    endpointUrl: ""
+    region: ""
+    addressingStyle: auto
+    avatarPublicUrlPrefix: ""
+    caBundle: ""
+    avatarProxy:
+      enabled: false
+      pathPrefix: /s3-avatar/
+      upstreamUrl: ""
+    uploadsStorageClass: STANDARD
+    skipChecksum: false
+    skipProxy: true
+    accessKey: ""
+    secretKey: ""
+  systemConfigExtra: ""
+  ## Optional extra native environment variables. Scalar values go into the
+  ## shared ConfigMap; valueFrom maps should be placed under global.zulip.extraEnv
+  ## so subchart pods can render them inline.
+  extraEnv: {}
+
+migration:
+  enabled: true
+  ## Keep this false by default because Helm pre-install hooks run before the
+  ## CNPG/RabbitMQ custom resources created by this same release exist.
+  useHelmHooks: false
+  hookWeight: "0"
+  backoffLimit: 12
+  dependencyGuard:
+    enabled: true
+    attempts: 120
+    sleepSeconds: 5
+  resources: {}
+
+## Associated extra objects -- for example, secrets for use with valueFrom.
+# extraObjects:
+#   - apiVersion: secrets-store.csi.x-k8s.io/v1
+#     kind: SecretProviderClass
+#     metadata:
+#       name: aws-zulip-credentials
+#       namespace: zulip
+#     spec:
+#       provider: aws
+#       parameters:
+#         objects: |
+#           - objectName: "zulip-credentials"
+#             objectType: "secretsmanager"
+extraObjects: []
+
+## CloudNativePG settings, see [Requirements](#Requirements).
+## Set cnpg.enabled to false and configure externalPostgresql to use a pre-existing server.
+cnpg:
+  enabled: true
+  ## Override the generated CNPG Cluster name. Defaults to "<fullname>-postgresql".
+  name: ""
+  instances: 1
+  ## Vanilla CloudNativePG-compatible PostgreSQL image. Zulip falls back to
+  ## PostgreSQL built-in English full-text search when PGroonga/tsearch files are
+  ## not installed in the database image.
+  imageName: "ghcr.io/cloudnative-pg/postgresql:14"
+  imagePullPolicy: IfNotPresent
+  sslmode: prefer
+  ## Optional list of image pull secrets for the CNPG pods.
+  imagePullSecrets: []
+  auth:
+    username: zulip
+    database: zulip
+    ## If empty and existingSecret is not set, CNPG generates the application user secret.
+    password: ""
+    ## Reference an existing Secret with username/password keys.
+    existingSecret: ""
+    usernameKey: username
+    passwordKey: password
+  initdb:
+    ## Zulip's upstream database bootstrap uses UTF8 and C.UTF-8 locales.
+    encoding: UTF8
+    localeCollate: C.UTF-8
+    localeCType: C.UTF-8
+    ## Extra SQL statements to run in the application database at cluster init.
+    postInitApplicationSQL: []
+  pgroonga:
+    ## Optional multilingual full-text search backend. This only works when the
+    ## PostgreSQL image or another CNPG-supported extension delivery mechanism
+    ## already contains PGroonga binaries/control files.
+    enabled: false
+    ## Add CREATE EXTENSION to bootstrap.initdb.postInitApplicationSQL.
+    createExtension: true
+    ## Add SETTING_USING_PGROONGA=True for the Zulip app when enabled.
+    configureZulip: true
+  storage:
+    size: 10Gi
+    storageClass: ""
+  walStorage:
+    enabled: false
+    size: 10Gi
+    storageClass: ""
+  resources: {}
+  monitoring:
+    enablePodMonitor: false
+  backup: {}
+  postgresql: {}
+  inheritedMetadata: {}
+  managed:
+    roles: []
+
+## RabbitMQ Cluster Operator settings, see [Requirements](#Requirements).
+## Set rabbitmq.enabled to false and configure externalRabbitmq to use a pre-existing server.
+rabbitmq:
+  enabled: true
+  ## Override the generated RabbitmqCluster name. Defaults to "<fullname>-rabbitmq".
+  name: ""
+  replicas: 1
+  image: "rabbitmq:4.1.3-management"
+  service:
+    type: ClusterIP
+  persistence:
+    storage: 10Gi
+    storageClassName: ""
+  resources: {}
+  rabbitmq:
+    additionalConfig: ""
+    additionalPlugins: []
+    envConfig: ""
+  override: {}
+  tls: {}
+  ## Secret created by the operator for the default user. Defaults to "<rabbitmq.name>-default-user".
+  defaultUserSecret: ""
+
+## Memcached settings, see [Requirements](#Requirements).
+## This chart renders a lightweight in-chart Deployment/Service when enabled.
+## Set memcached.enabled to false and configure externalMemcached to use a pre-existing server.
+memcached:
+  enabled: true
+  image:
+    repository: memcached
+    tag: "1.6-alpine"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    port: 11211
+    annotations: {}
+  resources: {}
+  podLabels: {}
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  memcachedUsername: "zulip@localhost"
+  ## Zulip supports a password env; vanilla Memcached has no auth by default.
+  memcachedPassword: ""
+
+## Redis settings, see [Requirements].
+## This chart renders a lightweight in-chart Deployment/Service when enabled.
+## Set redis.enabled to false and configure externalRedis to use a pre-existing server.
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    port: 6379
+    annotations: {}
+  auth:
+    password: ""
+    existingSecret: ""
+    existingSecretPasswordKey: redis-password
+  persistence:
+    enabled: false
+    accessMode: ReadWriteMany
+    size: 8Gi
+    storageClass: ""
+  resources: {}
+  podLabels: {}
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+## External PostgreSQL configuration.
+## Used when cnpg.enabled is set to false.
+externalPostgresql:
+  host: ""
+  port: 5432
+  database: "zulip"
+  user: "zulip"
+  ## password supports both scalar values and valueFrom maps.
+  # password: ""
+  sslmode: ""
+
+## External RabbitMQ configuration.
+## Used when rabbitmq.enabled is set to false.
+externalRabbitmq:
+  host: ""
+  port: 5672
+  user: "zulip"
+  ## password supports both scalar values and valueFrom maps.
+  # password: ""
+
+## External Memcached configuration.
+## Used when memcached.enabled is set to false.
+externalMemcached:
+  host: ""
+  port: 11211
+  user: ""
+  ## password supports both scalar values and valueFrom maps.
+  # password: ""
+
+## External Redis configuration.
+## Used when redis.enabled is set to false.
+externalRedis:
+  host: ""
+  port: 6379
+  ## password supports both scalar values and valueFrom maps.
+  # password: ""

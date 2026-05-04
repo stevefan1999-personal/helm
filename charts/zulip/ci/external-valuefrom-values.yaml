@@ -1,0 +1,58 @@
+---
+global:
+  zulip:
+    extraEnv:
+      ZULIP_SECRET_postgres_password:
+        valueFrom:
+          secretKeyRef:
+            name: external-pg-secret
+            key: password
+      ZULIP_SECRET_rabbitmq_password:
+        valueFrom:
+          secretKeyRef:
+            name: external-rabbitmq-secret
+            key: password
+      ZULIP_SECRET_memcached_password:
+        valueFrom:
+          secretKeyRef:
+            name: external-memcached-secret
+            key: password
+      ZULIP_SECRET_redis_password:
+        valueFrom:
+          secretKeyRef:
+            name: external-redis-secret
+            key: password
+zulip:
+  settings:
+    administratorEmail: admin@example.com
+    externalHost: zulip.example.com
+  secrets:
+    secretKey: test-secret-key
+cnpg:
+  enabled: false
+rabbitmq:
+  enabled: false
+memcached:
+  enabled: false
+redis:
+  enabled: false
+externalPostgresql:
+  host: pg.example.com
+  port: 5432
+  user: zulip
+  database: zulip
+  password: supplied-by-global-valuefrom
+externalRabbitmq:
+  host: rabbitmq.example.com
+  port: 5672
+  user: zulip
+  password: supplied-by-global-valuefrom
+externalMemcached:
+  host: memcached.example.com
+  port: 11211
+  user: zulip
+  password: supplied-by-global-valuefrom
+externalRedis:
+  host: redis.example.com
+  port: 6379
+  password: supplied-by-global-valuefrom

@@ -1,0 +1,38 @@
+apiVersion: v2
+description: Zulip is an open source threaded team chat. This meta chart renders role subcharts plus operator-managed CNPG PostgreSQL and RabbitMQ resources without external infrastructure chart dependencies.
+name: zulip
+type: application
+icon: https://raw.githubusercontent.com/zulip/zulip/main/static/images/logo/zulip-icon-square.svg
+maintainers:
+  - name: zulip
+    url: https://chat.zulip.org/
+## This is the chart version. This version number should be
+## incremented each time you make changes to the chart and its
+## templates, including the app version.  Versions are expected to
+## follow Semantic Versioning (https://semver.org/)
+version: 1.13.1
+
+## This is the version number of the application being deployed. This
+## version number should be incremented each time you make changes to
+## the application. Versions are not expected to follow Semantic
+## Versioning. They should reflect the version the application is
+## using.  It is recommended to use it with quotes.
+appVersion: "12.0-0"
+
+dependencies:
+  - name: web
+    version: "1.13.1"
+    condition: web.enabled
+  - name: tornado
+    version: "1.13.1"
+    condition: tornado.enabled
+  - name: worker
+    version: "1.13.1"
+    condition: worker.enabled
+  - name: singleton
+    version: "1.13.1"
+    condition: singleton.enabled
+
+sources:
+  - https://github.com/zulip/zulip
+  - https://ghcr.io/zulip/zulip-server

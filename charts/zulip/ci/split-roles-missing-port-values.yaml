@@ -1,0 +1,10 @@
+zulip:
+  tornadoSharding:
+    enabled: true
+    rules:
+      "9800": small
+      "9801_9802": large
+
+tornado:
+  ports:
+    - 9800

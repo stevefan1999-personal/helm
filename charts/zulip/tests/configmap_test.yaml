@@ -1,0 +1,90 @@
+suite: Native runtime ConfigMaps and migration Job
+tests:
+  - it: renders native runtime scripts without supervisor post-setup patching
+    templates:
+      - runtime-configmap.yaml
+    values:
+      - ../ci/simple-values.yaml
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - matchRegex:
+          path: data["run-django.sh"]
+          pattern: runuser -u zulip -- uv run --no-sync uwsgi
+      - matchRegex:
+          path: data["run-tornado.sh"]
+          pattern: manage.py runtornado
+      - matchRegex:
+          path: data["prepare.sh"]
+          pattern: remote_cache_prefix
+      - notMatchRegex:
+          path: data["prepare.sh"]
+          pattern: supervisor
+
+  - it: renders Zulip settings, zulip.conf, sharding, uwsgi, and nginx config files
+    templates:
+      - config-files.yaml
+    values:
+      - ../ci/simple-values.yaml
+      - ../ci/pgroonga-tornado-values.yaml
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - matchRegex:
+          path: data["settings.py"]
+          pattern: EXTERNAL_HOST = "zulip.example.net"
+      - matchRegex:
+          path: data["settings.py"]
+          pattern: LOCAL_UPLOADS_DIR = None
+      - matchRegex:
+          path: data["settings.py"]
+          pattern: S3_ENDPOINT_URL = "http://zulip-juicefs-s3:9000"
+      - matchRegex:
+          path: data["settings.py"]
+          pattern: S3_ADDRESSING_STYLE = "path"
+      - matchRegex:
+          path: data["settings.py"]
+          pattern: USING_PGROONGA = True
+      - matchRegex:
+          path: data["zulip.conf"]
+          pattern: "\\[tornado_sharding\\]"
+      - matchRegex:
+          path: data["sharding.json"]
+          pattern: very-large-realm
+      - matchRegex:
+          path: data["uwsgi.ini"]
+          pattern: "lazy-apps=true"
+      - matchRegex:
+          path: data["nginx.conf"]
+          pattern: upstream tornado9801
+      - matchRegex:
+          path: data["nginx.conf"]
+          pattern: "server .*tornado-9801:9801;"
+      - notMatchRegex:
+          path: data["nginx.conf"]
+          pattern: "server .*tornado-9801:19800;"
+      - matchRegex:
+          path: data["nginx.conf"]
+          pattern: "^user zulip;"
+      - matchRegex:
+          path: data["nginx.conf"]
+          pattern: 'proxy_set_header Host \$http_host;'
+      - matchRegex:
+          path: data["nginx.conf"]
+          pattern: "location = /json/events[\\s\\S]*proxy_set_header Host \\$http_host;[\\s\\S]*proxy_read_timeout 1200s;"
+
+  - it: renders a dedicated migration Job by default
+    templates:
+      - migration-job.yaml
+    values:
+      - ../ci/simple-values.yaml
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-zulip-migrate
+      - equal:
+          path: spec.template.spec.containers[0].command[1]
+          value: /opt/zulip-k8s/run-migrate.sh

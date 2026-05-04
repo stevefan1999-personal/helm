@@ -1,0 +1,23 @@
+---
+zulip:
+  settings:
+    administratorEmail: admin@example.com
+    externalHost: zulip.example.com
+  secrets:
+    secretKey: test-secret-key
+extraObjects:
+- "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ include \"zulip.fullname\"\
+  \ . }}-custom-extra\n  namespace: {{ .Release.Namespace }}\ndata:\n  extra-key:\
+  \ extra-value\n"
+memcached:
+  memcachedPassword: test-memcached
+rabbitmq:
+  auth:
+    password: test-rabbitmq
+    erlangCookie: test-cookie
+redis:
+  auth:
+    password: test-redis
+cnpg:
+  auth:
+    password: test-pg-zulip

@@ -1,0 +1,43 @@
+{{- $tornadoEnabled := .Values.tornado.enabled | default false }}
+{{- $singletonEnabled := .Values.singleton.enabled | default false }}
+{{- if and $tornadoEnabled (gt (int .Values.tornado.replicasPerShard) 1) }}
+{{- fail "tornado.replicasPerShard must be 1 because each Tornado port owns in-memory event queues" }}
+{{- end }}
+{{- if and $singletonEnabled (ne (int .Values.singleton.replicas) 1) }}
+{{- fail "singleton.replicas must be 1 because cron, scheduled delivery, email-server, and FTS updates are singleton processes" }}
+{{- end }}
+{{- $settings := .Values.zulip.settings | default dict }}
+{{- if get $settings "localUploads" }}
+{{- fail "zulip.settings.localUploads is no longer supported; configure zulip.objectStorage for durable uploads" }}
+{{- end }}
+{{- $objectStorage := .Values.zulip.objectStorage | default dict }}
+{{- if get $objectStorage "enabled" }}
+{{- if not (get $objectStorage "uploadsBucket") }}
+{{- fail "zulip.objectStorage.uploadsBucket is required when object storage is enabled" }}
+{{- end }}
+{{- if not (get $objectStorage "avatarBucket") }}
+{{- fail "zulip.objectStorage.avatarBucket is required when object storage is enabled" }}
+{{- end }}
+{{- $hasAccessKey := not (empty (get $objectStorage "accessKey")) }}
+{{- $hasSecretKey := not (empty (get $objectStorage "secretKey")) }}
+{{- if ne $hasAccessKey $hasSecretKey }}
+{{- fail "zulip.objectStorage.accessKey and secretKey must be set together" }}
+{{- end }}
+{{- end }}
+{{- if $tornadoEnabled }}
+{{- $rolePortSet := dict }}
+{{- range $port := .Values.tornado.ports }}
+{{- $_ := set $rolePortSet (toString $port) true }}
+{{- end }}
+{{- $tornadoSharding := .Values.zulip.tornadoSharding | default dict }}
+{{- if and (get $tornadoSharding "enabled") (get $tornadoSharding "rules") }}
+{{- range $ruleKey, $_ := (get $tornadoSharding "rules") }}
+{{- $portKey := trimSuffix "_regex" (toString $ruleKey) }}
+{{- range $port := splitList "_" $portKey }}
+{{- if not (hasKey $rolePortSet $port) }}
+{{- fail (printf "tornado.ports must include port %s referenced by zulip.tornadoSharding.rules[%s]" $port $ruleKey) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

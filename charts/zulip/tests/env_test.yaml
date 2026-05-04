@@ -1,0 +1,71 @@
+suite: Native shared environment
+tests:
+  - it: renders required Zulip secrets into the shared Secret
+    templates:
+      - env.yaml
+    values:
+      - ../ci/simple-values.yaml
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: stringData.ZULIP_SECRET_secret_key
+          value: set-secure-zulip-secret-key
+      - equal:
+          path: stringData.ZULIP_SECRET_memcached_password
+          value: set-secure-memcached-password
+      - equal:
+          path: stringData.ZULIP_SECRET_redis_password
+          value: set-secure-redis-password
+      - equal:
+          path: stringData.ZULIP_SECRET_s3_key
+          value: set-secure-s3-access-key
+      - equal:
+          path: stringData.ZULIP_SECRET_s3_secret_key
+          value: set-secure-s3-secret-key
+
+  - it: renders scalar external service passwords into native secret names
+    templates:
+      - env.yaml
+    values:
+      - ../ci/external-services-values.yaml
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: stringData.ZULIP_SECRET_postgres_password
+          value: external-pg-password
+      - equal:
+          path: stringData.ZULIP_SECRET_rabbitmq_password
+          value: external-rabbitmq-password
+      - equal:
+          path: stringData.ZULIP_SECRET_memcached_password
+          value: external-memcached-password
+      - equal:
+          path: stringData.ZULIP_SECRET_redis_password
+          value: external-redis-password
+
+  - it: renders scalar extra native environment values into the shared ConfigMap
+    templates:
+      - env.yaml
+    values:
+      - ../ci/certificates-values.yaml
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: data.CERTIFICATES
+          value: self-signed
+
+  - it: renders global valueFrom entries inline for the migration Job
+    templates:
+      - migration-job.yaml
+    values:
+      - ../ci/valuefrom-values.yaml
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ZULIP_SECRET_secret_key
+            valueFrom:
+              secretKeyRef:
+                name: zulip-secrets
+                key: secret-key

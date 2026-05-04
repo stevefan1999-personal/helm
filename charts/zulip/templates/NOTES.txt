@@ -1,0 +1,26 @@
+1. To create a realm so you can sign in:
+
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ template "zulip.name" . }},app.kubernetes.io/component=django" -o jsonpath="{.items[0].metadata.name}")
+  kubectl -n {{ .Release.Namespace }} exec -it "$POD_NAME" -c django -- runuser -u zulip -- /home/zulip/deployments/current/manage.py generate_realm_creation_link
+
+2. Zulip will be available on:
+
+{{- if .Values.web.ingress.enabled }}
+{{- range $host := .Values.web.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.web.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.web.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ default (include "zulip.fullname" .) .Values.web.service.name }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.web.service.type }}
+      NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+            You can watch the status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ default (include "zulip.fullname" .) .Values.web.service.name }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ default (include "zulip.fullname" .) .Values.web.service.name }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.web.service.port }}
+{{- else if contains "ClusterIP" .Values.web.service.type }}
+  echo "Visit http://127.0.0.1:{{ .Values.web.service.port }} to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ default (include "zulip.fullname" .) .Values.web.service.name }} {{ .Values.web.service.port }}:{{ .Values.web.service.port }}
+{{- end }}

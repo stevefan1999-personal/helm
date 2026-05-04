@@ -1,0 +1,34 @@
+---
+global:
+  zulip:
+    image:
+      pullPolicy: Never
+      repository: zulip/zulip-server
+zulip:
+  settings:
+    administratorEmail: admin@example.net
+    externalHost: zulip.example.net
+  secrets:
+    secretKey: set-secure-zulip-secret-key
+  objectStorage:
+    enabled: true
+    uploadsBucket: zulip-uploads
+    avatarBucket: zulip-avatars
+    endpointUrl: http://zulip-juicefs-s3:9000
+    region: us-east-1
+    addressingStyle: path
+    skipChecksum: true
+    accessKey: set-secure-s3-access-key
+    secretKey: set-secure-s3-secret-key
+memcached:
+  memcachedPassword: set-secure-memcached-password
+rabbitmq:
+  auth:
+    password: set-secure-rabbitmq-password
+    erlangCookie: set-secure-cookie-password
+redis:
+  auth:
+    password: set-secure-redis-password
+cnpg:
+  auth:
+    password: set-secure-pg-zulip-password

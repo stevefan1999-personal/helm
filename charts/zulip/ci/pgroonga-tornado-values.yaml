@@ -1,0 +1,29 @@
+---
+cnpg:
+  pgroonga:
+    enabled: true
+  initdb:
+    postInitApplicationSQL:
+      - SELECT 1;
+
+tornado:
+  ports:
+    - 9800
+    - 9801
+    - 9802
+
+web:
+  tornadoProxy:
+    ports:
+      - 9800
+      - 9801
+      - 9802
+
+
+
+zulip:
+  tornadoSharding:
+    enabled: true
+    rules:
+      "9800": "realm-a realm-b"
+      "9801_9802": "very-large-realm"

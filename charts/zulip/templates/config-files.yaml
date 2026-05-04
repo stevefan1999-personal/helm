@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zulip.appConfigMapName" . }}
+  labels:
+    {{- include "zulip.labels" . | nindent 4 }}
+data:
+  settings.py: |
+    {{- include "zulip.settingsPy" . | nindent 4 }}
+  zulip.conf: |
+    {{- include "zulip.zulipConf" . | nindent 4 }}
+  sharding.json: |
+    {{- include "zulip.shardingJson" . | nindent 4 }}
+  uwsgi.ini: |
+    {{- include "zulip.uwsgiIni" . | nindent 4 }}
+  nginx.conf: |
+    {{- include "zulip.nginxConf" . | nindent 4 }}
+{{- with .Values.zulip.objectStorage.caBundle }}
+  s3-ca.crt: |
+    {{- . | nindent 4 }}
+{{- end }}

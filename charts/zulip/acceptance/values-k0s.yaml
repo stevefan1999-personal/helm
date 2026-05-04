@@ -1,0 +1,87 @@
+global:
+  zulip:
+    name: zulip-e2e
+
+zulip:
+  settings:
+    externalHost: 192.168.2.190.nip.io
+    externalUriScheme: "https://"
+    administratorEmail: admin@example.net
+  secrets:
+    secretKey: set-secure-zulip-e2e-secret-key
+    sharedSecret: set-secure-zulip-e2e-shared-secret
+    avatarSalt: set-secure-zulip-e2e-avatar-salt
+  objectStorage:
+    enabled: true
+    uploadsBucket: zulip-uploads
+    avatarBucket: zulip-avatars
+    endpointUrl: https://zulip-juicefs-s3-tls
+    region: us-east-1
+    addressingStyle: path
+    skipChecksum: true
+    avatarPublicUrlPrefix: https://192.168.2.190.nip.io/s3-avatar/
+    avatarProxy:
+      enabled: true
+      pathPrefix: /s3-avatar/
+      upstreamUrl: http://zulip-juicefs-s3:9000/zulip-avatars/
+    caBundle: |
+      -----BEGIN CERTIFICATE-----
+      MIIDuzCCAqOgAwIBAgIUbzggph3FLvQQAha6f3g4uga69oIwDQYJKoZIhvcNAQEL
+      BQAwHzEdMBsGA1UEAwwUenVsaXAtanVpY2Vmcy1zMy10bHMwHhcNMjYwNTA0MTAx
+      MzI3WhcNMzYwNTAxMTAxMzI3WjAfMR0wGwYDVQQDDBR6dWxpcC1qdWljZWZzLXMz
+      LXRsczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANRMs8a3J3De3cSX
+      amZTlvAeI80M0W8nzPmuiY0cfBv+Llgnp3PirfHvk2JpuvyoUX2mjoToH8vQU/ZU
+      EOABC06LP1DnBZ7+hy/pB5jV9Jjl8zDee3WovYSLHKA3j9JIDwAIxqDmW9Vh1ezm
+      Lx/dqX+urmnUH1pOoiwdNAHhBh6FZN36DpgO+OWFvntrZg9ucK5Tf+6KLYhMXahF
+      qMJKb9ddsr77MXapmJG6Od56ViIm1yaIdH0qoYHqjva4MKeviF0QMdUbeLAFe41m
+      T5CTi9j7X+xujPfthwkfbNBmZVoOe3YvjkS1qH/UN1sA/r/xKoTMS02cXa+9WFW4
+      wvz+DV8CAwEAAaOB7jCB6zAdBgNVHQ4EFgQUJkRyGSv24j5NIwsqOV+rLbIaawYw
+      HwYDVR0jBBgwFoAUJkRyGSv24j5NIwsqOV+rLbIaawYwDwYDVR0TAQH/BAUwAwEB
+      /zCBlwYDVR0RBIGPMIGMghR6dWxpcC1qdWljZWZzLXMzLXRsc4IeenVsaXAtanVp
+      Y2Vmcy1zMy10bHMuenVsaXAtZTJlgiJ6dWxpcC1qdWljZWZzLXMzLXRscy56dWxp
+      cC1lMmUuc3ZjgjB6dWxpcC1qdWljZWZzLXMzLXRscy56dWxpcC1lMmUuc3ZjLmNs
+      dXN0ZXIubG9jYWwwDQYJKoZIhvcNAQELBQADggEBAGBlFQ5M9v6zV2O8EaSuu7Ua
+      HdewCP8ekawFuJOGOTO2Ba8Smz6dtg9G9L1zj8KVV6dukwpvWCrLTvN7tWg7oNub
+      E5fd6dvaQn0K/0dTfCDTeEgDkFdCBbW+CLo91ISCMpQTQCutoshTMXq3Jdp73lEy
+      otknxi92zgpY0vqSg/Nn4qwSwr4UBTBkRDB9R3spjhjcqCn7ADbrkOWFDUM1Voag
+      t232QDb23JsN2wiPPGYMlNBBI2ZROQiVHLROXdD5zAVNF07jcA+Is7y54iMHMOoF
+      KFVrGPpF1y6gywxvyxqCHWsTlxQGAIiDHfvVwlLIL0+r/lhmSC1WipScLFLQgbY=
+      -----END CERTIFICATE-----
+    accessKey: minioadmin
+    secretKey: minioadmin
+
+web:
+  gateway:
+    replicas: 3
+  django:
+    replicas: 3
+  probeHost: 192.168.2.190.nip.io
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    hosts:
+      - host: 192.168.2.190.nip.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  tusd:
+    enabled: true
+
+worker:
+  replicas: 3
+
+redis:
+  auth:
+    password: set-secure-zulip-e2e-redis-password
+
+rabbitmq:
+  replicas: 1
+
+cnpg:
+  instances: 1
+  sslmode: disable
+  auth:
+    password: set-secure-zulip-e2e-postgres-password

@@ -1,0 +1,26 @@
+---
+global:
+  zulip:
+    extraEnv:
+      ZULIP_SECRET_secret_key:
+        valueFrom:
+          secretKeyRef:
+            name: zulip-secrets
+            key: secret-key
+zulip:
+  settings:
+    administratorEmail: admin@example.com
+    externalHost: zulip.example.com
+  secrets: {}
+memcached:
+  memcachedPassword: test-memcached
+rabbitmq:
+  auth:
+    password: test-rabbitmq
+    erlangCookie: test-cookie
+redis:
+  auth:
+    password: test-redis
+cnpg:
+  auth:
+    password: test-pg-zulip

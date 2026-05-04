@@ -1,0 +1,68 @@
+enabled: true
+appName: zulip
+fullnameOverride: ""
+serviceAccountName: ""
+image: {}
+imagePullSecrets: []
+ports:
+  - 9800
+replicasPerShard: 1
+podLabels: {}
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+sidecars: []
+localhostProxy:
+  enabled: true
+  image:
+    repository: alpine/socat
+    tag: "1.8.0.3"
+    pullPolicy: IfNotPresent
+  portOffset: 10000
+  resources: {}
+dependencyGuard:
+  enabled: true
+  attempts: 120
+  sleepSeconds: 5
+sharedEnv:
+  configMapName: ""
+  secretName: ""
+connections:
+  postgresql:
+    passwordFromSecret: true
+    passwordSecretName: ""
+    passwordKey: password
+  rabbitmq:
+    usernameFromSecret: true
+    usernameSecretName: ""
+    usernameKey: username
+    passwordFromSecret: true
+    passwordSecretName: ""
+    passwordKey: password
+  redis:
+    passwordFromSecret: false
+    passwordSecretName: ""
+    passwordKey: redis-password
+config: {}
+secrets: {}
+extraEnv: []
+service:
+  annotations: {}
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1

@@ -1,0 +1,14 @@
+suite: NOTES
+templates:
+  - NOTES.txt
+tests:
+  - it: points operators at the Django pod for management commands
+    values:
+      - ../ci/simple-values.yaml
+    asserts:
+      - matchRegexRaw:
+          pattern: app.kubernetes.io/component=django
+      - matchRegexRaw:
+          pattern: "-c django"
+      - notMatchRegexRaw:
+          pattern: deprecated

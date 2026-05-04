@@ -1,0 +1,33 @@
+---
+zulip:
+  settings:
+    administratorEmail: admin@example.com
+    externalHost: zulip.example.com
+  secrets:
+    secretKey: test-secret-key
+web:
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+    - host: zulip.example.com
+      paths:
+      - path: /
+    tls:
+    - secretName: zulip-tls
+      hosts:
+      - zulip.example.com
+memcached:
+  memcachedPassword: test-memcached
+rabbitmq:
+  auth:
+    password: test-rabbitmq
+    erlangCookie: test-cookie
+redis:
+  auth:
+    password: test-redis
+cnpg:
+  auth:
+    password: test-pg-zulip

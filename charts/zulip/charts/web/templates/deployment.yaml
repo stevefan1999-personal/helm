@@ -1,0 +1,225 @@
+{{- if .Values.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "web.fullname" . }}
+  labels:
+    {{- include "web.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.gateway.replicas | default .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "web.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "web.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/global-zulip: {{ toJson (get (.Values.global | default dict) "zulip" | default dict) | sha256sum }}
+        checksum/runtime-name: {{ include "web.runtimeConfigMapName" . | sha256sum }}
+        checksum/app-config-name: {{ include "web.appConfigMapName" . | sha256sum }}
+        checksum/tornado-proxy: {{ toJson .Values.tornadoProxy | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- $imagePullSecrets := include "web.imagePullSecrets" . | trim }}
+      {{- if $imagePullSecrets }}
+      imagePullSecrets:
+        {{- $imagePullSecrets | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "web.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- $initContainers := include "web.initContainers" . | trim }}
+      {{- if $initContainers }}
+      initContainers:
+        {{- $initContainers | nindent 8 }}
+      {{- end }}
+      containers:
+        {{- with .Values.sidecars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        - name: nginx
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "web.image" . | quote }}
+          imagePullPolicy: {{ include "web.imagePullPolicy" . }}
+          command:
+            - /bin/bash
+            - /opt/zulip-k8s/run-nginx.sh
+          ports:
+            - name: http
+              containerPort: {{ .Values.gateway.containerPort | default 80 }}
+              protocol: TCP
+          volumeMounts:
+            {{- include "web.volumeMounts" . | nindent 12 }}
+          resources:
+            {{- toYaml (.Values.gateway.resources | default .Values.resources) | nindent 12 }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.startupProbe.successThreshold }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          {{- end }}
+      volumes:
+        {{- include "web.podVolumes" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "web.djangoName" . }}
+  labels:
+    {{- include "web.djangoLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.django.replicas | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "web.djangoSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "web.djangoSelectorLabels" . | nindent 8 }}
+        {{- with .Values.django.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/global-zulip: {{ toJson (get (.Values.global | default dict) "zulip" | default dict) | sha256sum }}
+        checksum/runtime-name: {{ include "web.runtimeConfigMapName" . | sha256sum }}
+        checksum/app-config-name: {{ include "web.appConfigMapName" . | sha256sum }}
+        checksum/config: {{ toJson .Values.config | sha256sum }}
+        checksum/secrets: {{ toJson .Values.secrets | sha256sum }}
+        checksum/tornado-proxy: {{ toJson .Values.tornadoProxy | sha256sum }}
+        {{- with .Values.django.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- $imagePullSecrets := include "web.imagePullSecrets" . | trim }}
+      {{- if $imagePullSecrets }}
+      imagePullSecrets:
+        {{- $imagePullSecrets | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "web.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- $djangoInitContainers := include "web.initContainers" . | trim }}
+      {{- if $djangoInitContainers }}
+      initContainers:
+        {{- $djangoInitContainers | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: django
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "web.image" . | quote }}
+          imagePullPolicy: {{ include "web.imagePullPolicy" . }}
+          command:
+            - /bin/bash
+            - /opt/zulip-k8s/run-django.sh
+          ports:
+            - name: django
+              containerPort: {{ .Values.django.port | default 8080 }}
+              protocol: TCP
+          volumeMounts:
+            {{- include "web.volumeMounts" . | nindent 12 }}
+          envFrom:
+            {{- include "web.envFrom" . | nindent 12 }}
+          env:
+            {{- include "web.secretEnv" . | nindent 12 }}
+            - name: ZULIP_DJANGO_PORT
+              value: {{ .Values.django.port | default 8080 | quote }}
+          resources:
+            {{- toYaml (.Values.django.resources | default .Values.resources) | nindent 12 }}
+        {{- include "web.outboundTornadoProxyContainer" . | nindent 8 }}
+        {{- if .Values.tusd.enabled }}
+        - name: tusd
+          image: {{ include "web.image" . | quote }}
+          imagePullPolicy: {{ include "web.imagePullPolicy" . }}
+          command:
+            - /bin/bash
+            - /opt/zulip-k8s/run-tusd.sh
+          ports:
+            - name: tusd
+              containerPort: {{ .Values.tusd.port | default 9900 }}
+              protocol: TCP
+          volumeMounts:
+            {{- include "web.volumeMounts" . | nindent 12 }}
+          envFrom:
+            {{- include "web.envFrom" . | nindent 12 }}
+          env:
+            {{- include "web.secretEnv" . | nindent 12 }}
+            - name: ZULIP_TUSD_PORT
+              value: {{ .Values.tusd.port | default 9900 | quote }}
+            - name: ZULIP_DJANGO_PORT
+              value: {{ .Values.django.port | default 8080 | quote }}
+          resources:
+            {{- toYaml .Values.tusd.resources | nindent 12 }}
+        {{- end }}
+        {{- if .Values.katex.enabled }}
+        - name: katex
+          image: {{ include "web.image" . | quote }}
+          imagePullPolicy: {{ include "web.imagePullPolicy" . }}
+          command:
+            - /bin/bash
+            - /opt/zulip-k8s/run-katex.sh
+          ports:
+            - name: katex
+              containerPort: {{ .Values.katex.port | default 9700 }}
+              protocol: TCP
+          volumeMounts:
+            {{- include "web.volumeMounts" . | nindent 12 }}
+          envFrom:
+            {{- include "web.envFrom" . | nindent 12 }}
+          env:
+            {{- include "web.secretEnv" . | nindent 12 }}
+            - name: ZULIP_KATEX_PORT
+              value: {{ .Values.katex.port | default 9700 | quote }}
+          resources:
+            {{- toYaml .Values.katex.resources | nindent 12 }}
+        {{- end }}
+      volumes:
+        {{- include "web.podVolumes" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
