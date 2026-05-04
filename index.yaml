@@ -2,6 +2,37 @@ apiVersion: v1
 entries:
   netbird:
   - apiVersion: v2
+    appVersion: 0.70.4
+    created: "2026-05-04T16:33:01.664101095Z"
+    dependencies:
+    - condition: dashboard.enabled
+      name: dashboard
+      repository: ""
+      version: 0.3.0
+    - condition: management.enabled
+      name: management
+      repository: ""
+      version: 0.3.0
+    - condition: signal.enabled
+      name: signal
+      repository: ""
+      version: 0.3.0
+    - condition: relay.enabled
+      name: relay
+      repository: ""
+      version: 0.3.0
+    - condition: proxy.enabled
+      name: proxy
+      repository: ""
+      version: 0.3.0
+    description: A Helm chart for NetBird
+    digest: 125f7b55224fa5dc3277d0ecdbde57098d7e8875f3223c7f4ba9a2f09decc870
+    name: netbird
+    type: application
+    urls:
+    - https://github.com/stevefan1999-personal/helm/releases/download/netbird-0.4.0/netbird-0.4.0.tgz
+    version: 0.4.0
+  - apiVersion: v2
     appVersion: 0.67.0
     created: "2026-03-25T09:02:04.070808266Z"
     dependencies:
@@ -119,6 +150,24 @@ entries:
     version: 0.1.0
   netbird-combined:
   - apiVersion: v2
+    appVersion: 0.70.4
+    created: "2026-05-04T16:33:01.787551692Z"
+    dependencies:
+    - name: netbird-dashboard-lib
+      repository: file://../netbird-dashboard-lib
+      version: 0.1.0
+    - name: netbird-proxy-lib
+      repository: file://../netbird-proxy-lib
+      version: 0.1.0
+    description: NetBird combined server - management, signal, relay, STUN, dashboard,
+      and optional proxy in a combined deployment
+    digest: 5c71615233e0f029a381f4a456b0922a14fb4a0c92a4e26a0ecf6096fec5e802
+    name: netbird-combined
+    type: application
+    urls:
+    - https://github.com/stevefan1999-personal/helm/releases/download/netbird-combined-0.3.0/netbird-combined-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
     appVersion: 0.67.0
     created: "2026-03-25T08:54:11.853365476Z"
     dependencies:
@@ -138,4 +187,26 @@ entries:
     urls:
     - https://github.com/stevefan1999-personal/helm/releases/download/netbird-combined-0.1.0/netbird-combined-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-25T09:02:04.070863097Z"
+  netbird-dashboard-lib:
+  - apiVersion: v2
+    appVersion: 2.37.1
+    created: "2026-05-04T16:33:01.908773429Z"
+    description: Reusable NetBird dashboard Helm template library
+    digest: 1b53d1d0411f10cf71a177707419705afe175a4b99bd623c8010752c0408efa8
+    name: netbird-dashboard-lib
+    type: library
+    urls:
+    - https://github.com/stevefan1999-personal/helm/releases/download/netbird-dashboard-lib-0.1.0/netbird-dashboard-lib-0.1.0.tgz
+    version: 0.1.0
+  netbird-proxy-lib:
+  - apiVersion: v2
+    appVersion: 0.70.4
+    created: "2026-05-04T16:33:02.050196515Z"
+    description: Reusable NetBird reverse proxy Helm template library
+    digest: 29f1ffa030b1431efe683790cc947fe5df75c2329359bd4ff30cdc6ec7f6f2b1
+    name: netbird-proxy-lib
+    type: library
+    urls:
+    - https://github.com/stevefan1999-personal/helm/releases/download/netbird-proxy-lib-0.1.0/netbird-proxy-lib-0.1.0.tgz
+    version: 0.1.0
+generated: "2026-05-04T16:33:02.050232142Z"
