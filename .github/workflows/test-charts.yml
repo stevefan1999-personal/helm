@@ -3,10 +3,10 @@ name: Test Charts
 on:
   push:
     branches: [main]
-    paths: ['charts/**', '.github/workflows/test-charts.yml']
+    paths: ['charts/**', '.github/workflows/test-charts.yml', '.github/scripts/**']
   pull_request:
     branches: [main]
-    paths: ['charts/**', '.github/workflows/test-charts.yml']
+    paths: ['charts/**', '.github/workflows/test-charts.yml', '.github/scripts/**']
 
 jobs:
   lint:
@@ -19,8 +19,26 @@ jobs:
       with:
         fetch-depth: 0
     - uses: azure/setup-helm@v4
+    - name: Build Helm dependencies
+      run: .github/scripts/build-helm-dependencies.sh
     - name: Lint
       run: helm lint charts/${{ matrix.chart }}
+
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: azure/setup-helm@v4
+    - name: Install helm-unittest
+      run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.0.3 --verify=false
+    - name: Build Helm dependencies
+      run: .github/scripts/build-helm-dependencies.sh
+    - name: Run Helm unit tests
+      run: |
+        helm unittest charts/netbird
+        helm unittest charts/netbird-combined
 
   template:
     runs-on: ubuntu-latest
@@ -47,6 +65,10 @@ jobs:
             --set global.postgresql.external.enabled=true
             --set global.postgresql.external.host=pg.example.com
             --set global.postgresql.external.password=secret
+        - chart: netbird
+          name: proxy
+          args: >-
+            --set proxy.enabled=true
         - chart: netbird-combined
           name: default
           args: ""
@@ -61,16 +83,22 @@ jobs:
           name: postgres
           args: >-
             --set global.postgresql.cnpg.enabled=true
+        - chart: netbird-combined
+          name: proxy
+          args: >-
+            --set proxy.enabled=true
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - uses: azure/setup-helm@v4
+    - name: Build Helm dependencies
+      run: .github/scripts/build-helm-dependencies.sh
     - name: Template ${{ matrix.chart }} (${{ matrix.name }})
       run: helm template test charts/${{ matrix.chart }} ${{ matrix.args }} > /dev/null
 
   deploy:
-    needs: [lint, template]
+    needs: [lint, unittest, template]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -128,6 +156,8 @@ jobs:
       with:
         fetch-depth: 0
     - uses: azure/setup-helm@v4
+    - name: Build Helm dependencies
+      run: .github/scripts/build-helm-dependencies.sh
     - uses: helm/kind-action@v1
     - name: Install CNPG
       if: matrix.install_cnpg
@@ -172,7 +202,7 @@ jobs:
       run: for pod in $(kubectl get pods -n ${{ matrix.namespace }} -o name); do echo "=== $pod ===" && kubectl logs -n ${{ matrix.namespace }} $pod --tail=50 2>/dev/null || true; done
 
   deploy-external-postgres:
-    needs: [lint, template]
+    needs: [lint, unittest, template]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -217,6 +247,8 @@ jobs:
       with:
         fetch-depth: 0
     - uses: azure/setup-helm@v4
+    - name: Build Helm dependencies
+      run: .github/scripts/build-helm-dependencies.sh
     - uses: helm/kind-action@v1
     - name: Deploy PostgreSQL inside kind
       run: |
