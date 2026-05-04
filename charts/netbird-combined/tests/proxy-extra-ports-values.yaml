@@ -1,0 +1,13 @@
+proxy:
+  enabled: true
+  tls:
+    acme:
+      challengeType: http-01
+  service:
+    extraPorts:
+      - name: tcp-5432
+        port: 5432
+        protocol: TCP
+      - name: udp-51820
+        port: 51820
+        protocol: UDP

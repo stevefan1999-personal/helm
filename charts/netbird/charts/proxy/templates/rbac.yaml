@@ -1,0 +1,1 @@
+{{- include "netbird-proxy-lib.acmeLeaseRBAC" (dict "root" . "values" .Values "fullname" (include "proxy.fullname" .) "labels" (include "proxy.labels" .)) }}

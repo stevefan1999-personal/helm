@@ -6,7 +6,7 @@ replicas: 1
 
 image:
   repository: "netbirdio/reverse-proxy"
-  tag: "0.67.0"
+  tag: "0.70.4"
   pullPolicy: IfNotPresent
 
 securityContext: {}
@@ -14,6 +14,17 @@ podSecurityContext: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+serviceAccount:
+  # Used for ACME certificate locking with Kubernetes Leases.
+  create: true
+  name: ""
+  automountServiceAccountToken: true
+  annotations: {}
+
+rbac:
+  # Grants coordination.k8s.io Lease access when ACME locking uses k8s-lease/auto.
+  create: true
 
 resources:
   requests:
@@ -53,6 +64,8 @@ tls:
     challengeType: "tls-alpn-01"
     # For http-01, the ACME HTTP server listens on this port.
     httpPort: 80
+    # Service port exposed for http-01 challenges.
+    servicePort: 80
     # ACME directory URL (default: Let's Encrypt production).
     directory: ""
     # External Account Binding (for ZeroSSL, etc).
@@ -77,13 +90,65 @@ forwardedProto: "https"
 # Set when behind Cloudflare, AWS ALB, or other load balancer.
 trustedProxies: ""
 
+# Enable the proxy debug HTTP endpoint.
+debugEndpoint:
+  enabled: false
+  address: "localhost:8444"
+
+# Certificate lock method for multi-replica ACME coordination: auto, flock, or k8s-lease.
+certLockMethod: "auto"
+
+# Directory containing wildcard certificate pairs (<name>.crt/<name>.key).
+wildcardCertDir: ""
+
+# WireGuard listen port (0=random). Fixed ports only work with single-account deployments.
+wireguardPort: 0
+
+# Enable PROXY protocol on TCP listeners.
+proxyProtocol: false
+
+# Optional pre-shared key for tunnels between proxy and peers.
+preSharedKey: ""
+
+# Whether this proxy can bind arbitrary UDP/TCP passthrough ports.
+supportsCustomPorts: true
+
+# Require a subdomain label in front of the cluster domain.
+requireSubdomain: false
+
+# Optional timeout caps.
+timeouts:
+  maxDial: ""
+  maxSessionIdle: ""
+
+# GeoLite2 database directory used by the proxy.
+geolocation:
+  dataDir: "/var/lib/netbird/geolocation"
+
+# CrowdSec LAPI integration for per-service IP reputation checks.
+crowdsec:
+  apiUrl: ""
+  apiKey: ""
+  # Reference an existing secret with key NB_PROXY_CROWDSEC_API_KEY.
+  existingSecret: ""
+
 # Log level: debug, info, warn, error.
 logLevel: "info"
 
 service:
   type: ClusterIP
+  annotations: {}
   # Main HTTPS port (proxy handles its own TLS).
   port: 443
+  # Extra public L4 ports for NetBird Reverse Proxy services with custom ports.
+  # Each entry adds a Service port and matching container port.
+  extraPorts: []
+  # - name: tcp-5432
+  #   port: 5432
+  #   protocol: TCP
+  # - name: udp-51820
+  #   port: 51820
+  #   protocol: UDP
 
 # Ingress for proxy.
 # IMPORTANT: Requires TLS passthrough - the proxy manages its own certificates.
@@ -98,3 +163,14 @@ persistence:
   enabled: true
   storageClass: ""
   size: "100Mi"
+
+
+# Management server target used by the proxy and token creator.
+management:
+  address: ""
+  serviceSuffix: "management"
+  appName: "management"
+  containerName: "management"
+  command: "/usr/local/bin/netbird-server"
+  configPath: "/etc/netbird/config.yaml"
+  kubectlImage: "bitnami/kubectl:latest"

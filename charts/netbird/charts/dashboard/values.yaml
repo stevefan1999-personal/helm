@@ -4,14 +4,14 @@ replicas: 1
 
 image:
   repository: "netbirdio/dashboard"
-  tag: "v2.35.0"
+  tag: "v2.37.1"
   pullPolicy: IfNotPresent
 
 securityContext: {}
 
 service:
   type: ClusterIP
-  # Dashboard v2.35.0+ runs nginx on port 80
+  # Dashboard v2.37.1+ runs nginx on port 80
   port: 80
 
 resources:
@@ -29,3 +29,23 @@ ingress:
   annotations: {}
   tls:
     secretName: "netbird-tls"
+
+
+# Optional explicit dashboard endpoint overrides. Parent charts normally derive these.
+config:
+  managementEndpoint: ""
+  managementGrpcEndpoint: ""
+  signalEndpoint: ""
+  relayEndpoint: ""
+
+# Optional explicit dashboard auth overrides. Parent charts normally derive these.
+auth:
+  authority: ""
+  audience: ""
+  clientId: ""
+  clientSecret: ""
+  supportedScopes: ""
+  tokenSource: ""
+
+secret:
+  enabled: true

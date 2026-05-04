@@ -4,7 +4,7 @@ replicas: 1
 
 image:
   repository: "netbirdio/relay"
-  tag: "0.67.0"
+  tag: "0.70.4"
   pullPolicy: IfNotPresent
 
 securityContext: {}
@@ -18,6 +18,18 @@ logLevel: "info"
 
 # Health check listen address inside the container.
 healthListenAddress: ":9000"
+healthPath: "/health"
+
+probe:
+  type: "tcp"
+
+trustedCA:
+  secretName: ""
+  key: "tls.crt"
+
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []
 
 resources:
   requests:

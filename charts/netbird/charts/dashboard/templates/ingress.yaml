@@ -1,42 +1,15 @@
-{{/*
-Dashboard ingress is skipped when unified ingress mode is enabled.
-*/}}
-{{- $globalIngress := $.Values.global.netbird.ingress | default dict -}}
+{{/* Dashboard ingress is skipped when unified ingress mode is enabled. */}}
+{{- $values := .Values | toJson | fromJson -}}
+{{- $globalIngress := dig "global" "netbird" "ingress" (dict) $values -}}
 {{- $subchartIngress := .Values.ingress | default dict -}}
-{{- $ingress := merge $subchartIngress $globalIngress -}}
-
-{{- if and $ingress.enabled (not $globalIngress.unified) }}
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: {{ include "dashboard.fullname" . }}
-  labels:
-    {{- include "dashboard.labels" . | nindent 4 }}
-  {{- with $ingress.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-spec:
-  {{- if $ingress.className }}
-  ingressClassName: {{ $ingress.className }}
-  {{- end }}
-  {{- if $ingress.tls.enabled }}
-  tls:
-    - hosts:
-        - {{ $.Values.global.netbird.fqdn | quote }}
-      {{- with $ingress.tls.secretName }}
-      secretName: {{ . }}
-      {{- end }}
-  {{- end }}
-  rules:
-    - host: {{ $.Values.global.netbird.fqdn | quote }}
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "dashboard.fullname" . }}
-                port:
-                  number: {{ .Values.service.port }}
-{{- end }}
+{{- $ingressValues := merge $subchartIngress $globalIngress -}}
+{{- $tls := $ingressValues.tls | default dict -}}
+{{- $ingress := dict
+  "enabled" (and ($ingressValues.enabled | default false) (not ($globalIngress.unified | default false)))
+  "host" (dig "global" "netbird" "fqdn" "" $values)
+  "path" "/"
+  "className" ($ingressValues.className | default "")
+  "annotations" ($ingressValues.annotations | default dict)
+  "tls" (dict "enabled" ($tls.enabled | default false) "secretName" ($tls.secretName | default ""))
+-}}
+{{- include "netbird-dashboard-lib.ingress" (dict "root" . "values" .Values "fullname" (include "dashboard.fullname" .) "labels" (include "dashboard.labels" .) "ingress" $ingress) }}

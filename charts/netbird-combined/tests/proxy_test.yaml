@@ -1,0 +1,163 @@
+suite: NetBird Combined Proxy
+templates:
+  - templates/proxy.yaml
+release:
+  name: nb
+  namespace: default
+tests:
+  - it: does not render proxy resources by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: exposes the proxy sidecar through a service targeting the server pod
+    set:
+      proxy.enabled: true
+    documentSelector:
+      path: spec.ports[0].targetPort
+      value: proxy-https
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.ports[0].targetPort
+          value: proxy-https
+      - equal:
+          path: spec.ports[1].targetPort
+          value: proxy-health
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: server
+      - equal:
+          path: spec.selector["app.kubernetes.io/instance"]
+          value: nb
+
+  - it: exposes ACME http-01 and extra L4 ports on the proxy service
+    values:
+      - proxy-extra-ports-values.yaml
+    documentSelector:
+      path: spec.ports[0].targetPort
+      value: proxy-https
+    asserts:
+      - contains:
+          path: spec.ports
+          content:
+            name: acme-http
+            port: 80
+            targetPort: proxy-acme
+            protocol: TCP
+      - contains:
+          path: spec.ports
+          content:
+            name: tcp-5432
+            port: 5432
+            targetPort: tcp-5432
+            protocol: TCP
+      - contains:
+          path: spec.ports
+          content:
+            name: udp-51820
+            port: 51820
+            targetPort: udp-51820
+            protocol: UDP
+
+  - it: creates lease RBAC for the proxy sidecar ACME lock
+    set:
+      proxy.enabled: true
+    documentSelector:
+      path: rules[0].resources[0]
+      value: leases
+    asserts:
+      - isKind:
+          of: Role
+      - equal:
+          path: metadata.name
+          value: nb-proxy-acme-lease
+      - equal:
+          path: rules[0].apiGroups[0]
+          value: coordination.k8s.io
+      - equal:
+          path: rules[0].verbs
+          value:
+            - get
+            - create
+            - update
+
+  - it: creates a placeholder token secret for sidecar bootstrap
+    set:
+      proxy.enabled: true
+    documentSelector:
+      path: metadata.name
+      value: nb-proxy-proxy-secrets
+    asserts:
+      - isKind:
+          of: Secret
+      - equal:
+          path: stringData.NB_PROXY_TOKEN
+          value: nbx_placeholder
+
+  - it: creates a sidecar-safe token job against the server container
+    set:
+      proxy.enabled: true
+    documentSelector:
+      path: metadata.name
+      value: nb-proxy-create-token
+    asserts:
+      - isKind:
+          of: Job
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SERVER_DEPLOY
+            value: nb-server
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SERVER_CONTAINER
+            value: netbird-server
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PROXY_DEPLOY
+            value: nb-server
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: WAIT_FOR_AVAILABLE
+            value: "false"
+
+  - it: skips generated secret and token job when an existing token secret is supplied
+    set:
+      proxy.enabled: true
+      proxy.existingSecret: existing-proxy-token
+    asserts:
+      - hasDocuments:
+          count: 5
+      - equal:
+          path: kind
+          value: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: kind
+          value: Role
+        documentIndex: 1
+      - equal:
+          path: kind
+          value: RoleBinding
+        documentIndex: 2
+      - equal:
+          path: kind
+          value: PersistentVolumeClaim
+        documentIndex: 3
+      - equal:
+          path: metadata.name
+          value: nb-proxy-certs
+        documentIndex: 3
+      - equal:
+          path: kind
+          value: Service
+        documentIndex: 4
+      - equal:
+          path: metadata.name
+          value: nb-proxy
+        documentIndex: 4

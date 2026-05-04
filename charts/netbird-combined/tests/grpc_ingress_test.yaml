@@ -1,0 +1,36 @@
+suite: NetBird Combined gRPC Ingress
+templates:
+  - templates/grpc-ingress.yaml
+release:
+  name: nb
+  namespace: default
+tests:
+  - it: is not rendered by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders native gRPC routes when enabled
+    set:
+      global.ingress.grpc.enabled: true
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: metadata.name
+          value: nb-grpc
+      - equal:
+          path: metadata.annotations["nginx.ingress.kubernetes.io/backend-protocol"]
+          value: GRPC
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 2
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /management.ManagementService
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: nb-server
+      - equal:
+          path: spec.rules[0].http.paths[1].path
+          value: /signalexchange.SignalExchange

@@ -2,5 +2,10 @@ apiVersion: v2
 name: proxy
 description: NetBird reverse proxy subchart - exposes internal services to the public internet
 type: application
-version: 0.1.0
-appVersion: "0.67.0"
+version: 0.3.0
+appVersion: "0.70.4"
+
+dependencies:
+- name: netbird-proxy-lib
+  version: 0.1.0
+  repository: file://../../../netbird-proxy-lib

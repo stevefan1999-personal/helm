@@ -22,9 +22,20 @@ global:
       nginx.ingress.kubernetes.io/server-snippets: |
         grpc_read_timeout 86400s;
         grpc_send_timeout 86400s;
+    # Create a separate ingress for native gRPC paths. This is required for
+    # nginx when dashboard/API HTTP routes share the same host as gRPC routes.
+    grpc:
+      enabled: false
+      annotations:
+        nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
 
   # Server ingress host (defaults to global.fqdn if empty).
   server:
+    # Public server address advertised to clients. Defaults to https://<server-host>:443.
+    # Set to http://<host>:80 for local plaintext ingress tests.
+    exposedAddress: ""
     ingress:
       host: ""
 
@@ -56,6 +67,10 @@ global:
     owner:
       email: ""
       password: ""
+    # Enables setup-time Personal Access Token issuance.
+    # Requires a NetBird server image built after v0.70.4.
+    setupPAT:
+      enabled: false
 
   # Relay auth secret. REQUIRED for embedded relay.
   relay:
@@ -84,6 +99,21 @@ global:
     trustedHTTPProxiesCount: 0
     trustedPeers:
       - "0.0.0.0/0"
+    # Days to retain reverse-proxy access logs. 0 defaults to 7; negative disables cleanup.
+    accessLogRetentionDays: 0
+    # Cleanup interval in hours for reverse-proxy access logs. 0 defaults to 24.
+    accessLogCleanupIntervalHours: 0
+
+  # API token rate limiting. Disabled unless explicitly enabled.
+  apiRateLimiting:
+    enabled: false
+    requestsPerMinute: 6
+    burst: 500
+
+  # Shared cache backend for IDP/session/one-time token state.
+  cache:
+    # Redis URL, for example redis://:password@redis:6379/0.
+    redisAddress: ""
 
   # External service overrides.
   # Setting these DISABLES the corresponding embedded service.
@@ -124,14 +154,186 @@ global:
         enabled: false
         schedule: "0 3 * * *"
 
-# Server subchart configuration.
+# Combined server deployment configuration.
 server:
   enabled: true
+  replicas: 1
 
-# Dashboard subchart configuration.
+  image:
+    repository: "netbirdio/netbird-server"
+    tag: "0.70.4"
+    pullPolicy: IfNotPresent
+
+  securityContext: {}
+  podSecurityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # Deployment strategy. Defaults to Recreate when STUN hostPorts are enabled
+  # so single-node clusters do not deadlock during upgrades.
+  strategy: {}
+
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"
+
+  # Listen port inside the container.
+  listenPort: 443
+
+  # STUN UDP ports. Set to [] to disable embedded STUN.
+  stunPorts:
+    - 3478
+
+  # Prometheus metrics port.
+  metricsPort: 9090
+
+  # Health check port.
+  healthPort: 9000
+
+  # Log level: debug, info, warn, error.
+  logLevel: "info"
+
+  # Whether to send anonymous usage metrics to NetBird.
+  anonymousMetrics:
+    enabled: true
+
+  # Whether to auto-update GeoLite2 geolocation databases.
+  geoliteUpdate:
+    enabled: false
+
+  service:
+    type: ClusterIP
+    port: 443
+
+  persistence:
+    enabled: true
+    storageClass: ""
+    size: "1Gi"
+
+  ingress:
+    enabled: true
+    className: ""
+    annotations: {}
+    tls:
+      secretName: ""
+
+# Dashboard subchart configuration. In the combined chart this renders as a
+# sidecar in the server pod, plus a Service/Ingress that targets that pod.
 dashboard:
   enabled: true
+  image:
+    repository: "netbirdio/dashboard"
+    tag: "v2.37.1"
+    pullPolicy: IfNotPresent
+  securityContext: {}
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+  secret:
+    enabled: false
+  auth:
+    audience: "netbird-dashboard"
+    clientId: "netbird-dashboard"
+    clientSecret: ""
+    supportedScopes: "openid profile email"
+    tokenSource: "idToken"
 
 # Proxy subchart configuration (reverse proxy for exposing internal services).
+# In the combined chart this renders as a sidecar in the server pod when enabled.
 proxy:
   enabled: false
+  image:
+    repository: "netbirdio/reverse-proxy"
+    tag: "0.70.4"
+    pullPolicy: IfNotPresent
+  securityContext: {}
+  podSecurityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  serviceAccount:
+    # Used by the combined server pod when the proxy sidecar needs ACME Lease locking.
+    create: true
+    name: ""
+    automountServiceAccountToken: true
+    annotations: {}
+  rbac:
+    # Grants coordination.k8s.io Lease access when ACME locking uses k8s-lease/auto.
+    create: true
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+  domain: ""
+  token: ""
+  existingSecret: ""
+  allowInsecure: true
+  tls:
+    acme:
+      enabled: true
+      challengeType: "tls-alpn-01"
+      httpPort: 80
+      servicePort: 80
+      directory: ""
+      eabKeyId: ""
+      eabHmacKey: ""
+    static:
+      certFile: ""
+      keyFile: ""
+    certManager:
+      secretName: ""
+  forwardedProto: "https"
+  trustedProxies: ""
+  debugEndpoint:
+    enabled: false
+    address: "localhost:8444"
+  certLockMethod: "auto"
+  wildcardCertDir: ""
+  wireguardPort: 0
+  proxyProtocol: false
+  preSharedKey: ""
+  supportsCustomPorts: true
+  requireSubdomain: false
+  timeouts:
+    maxDial: ""
+    maxSessionIdle: ""
+  geolocation:
+    dataDir: "/var/lib/netbird/geolocation"
+  crowdsec:
+    apiUrl: ""
+    apiKey: ""
+    existingSecret: ""
+  logLevel: "info"
+  service:
+    type: ClusterIP
+    annotations: {}
+    port: 443
+    extraPorts: []
+    # - name: tcp-5432
+    #   port: 5432
+    #   protocol: TCP
+    # - name: udp-51820
+    #   port: 51820
+    #   protocol: UDP
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+  persistence:
+    enabled: true
+    storageClass: ""
+    size: "100Mi"

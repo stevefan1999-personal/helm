@@ -1,0 +1,42 @@
+{{- if and .Values.global.netbird.ingress.enabled .Values.global.netbird.ingress.unified .Values.global.netbird.ingress.grpc.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-grpc
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    {{- with .Values.global.netbird.ingress.grpc.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.global.netbird.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.global.netbird.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.global.netbird.fqdn | quote }}
+      {{- with .Values.global.netbird.ingress.tls.secretName }}
+      secretName: {{ . }}
+      {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.global.netbird.fqdn | quote }}
+      http:
+        paths:
+          - path: /management.ManagementService
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-management
+                port:
+                  number: {{ .Values.management.service.port | default 443 }}
+          - path: /signalexchange.SignalExchange
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-signal
+                port:
+                  number: {{ .Values.signal.service.port | default 80 }}
+{{- end }}

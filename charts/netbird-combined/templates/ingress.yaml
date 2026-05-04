@@ -1,7 +1,8 @@
-{{- if .Values.global.ingress.enabled }}
+{{- if and .Values.server.enabled .Values.server.ingress.enabled .Values.global.ingress.enabled }}
 {{- $serverFqdn := include "netbird-combined.server.fqdn" . -}}
 {{- $dashboardFqdn := include "netbird-combined.dashboard.fqdn" . -}}
 {{- $sameDomain := eq $serverFqdn $dashboardFqdn -}}
+{{- $serverName := include "netbird-combined.server.fullname" . -}}
 
 {{- if $sameDomain }}
 # Unified ingress: server + dashboard on the same domain.
@@ -37,7 +38,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}-server
+                name: {{ $serverName }}
                 port:
                   number: {{ .Values.server.service.port | default 443 }}
           # Server: Embedded IdP (Dex OIDC)
@@ -45,7 +46,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}-server
+                name: {{ $serverName }}
                 port:
                   number: {{ .Values.server.service.port | default 443 }}
           # Server: Device auth callback
@@ -53,7 +54,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}-server
+                name: {{ $serverName }}
                 port:
                   number: {{ .Values.server.service.port | default 443 }}
           # Server: Relay WebSocket
@@ -61,7 +62,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}-server
+                name: {{ $serverName }}
                 port:
                   number: {{ .Values.server.service.port | default 443 }}
           # Server: WebSocket proxy (signal + management gRPC via WS)
@@ -69,15 +70,16 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}-server
+                name: {{ $serverName }}
                 port:
                   number: {{ .Values.server.service.port | default 443 }}
           # Server: Native gRPC - Signal
+          {{- if not .Values.global.ingress.grpc.enabled }}
           - path: /signalexchange.SignalExchange
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}-server
+                name: {{ $serverName }}
                 port:
                   number: {{ .Values.server.service.port | default 443 }}
           # Server: Native gRPC - Management
@@ -85,9 +87,11 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Release.Name }}-server
+                name: {{ $serverName }}
                 port:
                   number: {{ .Values.server.service.port | default 443 }}
+          {{- end }}
+          {{- if .Values.dashboard.enabled }}
           # Dashboard: catch-all (must be last)
           - path: /
             pathType: Prefix
@@ -96,5 +100,41 @@ spec:
                 name: {{ .Release.Name }}-dashboard
                 port:
                   number: {{ .Values.dashboard.service.port | default 80 }}
+          {{- end }}
+{{- else }}
+# Server-only ingress when dashboard and server use separate hosts.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $serverName }}
+  labels:
+    {{- include "netbird-combined.server.labels" . | nindent 4 }}
+  {{- with .Values.server.ingress.annotations | default .Values.global.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.server.ingress.className | default .Values.global.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.global.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ $serverFqdn | quote }}
+      {{- with .Values.server.ingress.tls.secretName | default .Values.global.ingress.tls.secretName }}
+      secretName: {{ . }}
+      {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ $serverFqdn | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $serverName }}
+                port:
+                  number: {{ .Values.server.service.port }}
 {{- end }}
 {{- end }}

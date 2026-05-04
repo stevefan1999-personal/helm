@@ -1,0 +1,77 @@
+suite: NetBird Combined Ingress
+templates:
+  - templates/ingress.yaml
+release:
+  name: nb
+  namespace: default
+tests:
+  - it: routes server paths to the server and catch-all traffic to the dashboard on one host
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: metadata.name
+          value: nb-netbird
+      - equal:
+          path: spec.rules[0].host
+          value: netbird.example.com
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 8
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /api
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: nb-server
+      - equal:
+          path: spec.rules[0].http.paths[5].path
+          value: /signalexchange.SignalExchange
+      - equal:
+          path: spec.rules[0].http.paths[6].path
+          value: /management.ManagementService
+      - equal:
+          path: spec.rules[0].http.paths[7].path
+          value: /
+      - equal:
+          path: spec.rules[0].http.paths[7].backend.service.name
+          value: nb-dashboard
+
+  - it: omits native gRPC paths from the unified ingress when split gRPC ingress is enabled
+    set:
+      global.ingress.grpc.enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 6
+      - notContains:
+          path: spec.rules[0].http.paths
+          content:
+            path: /signalexchange.SignalExchange
+          any: true
+      - notContains:
+          path: spec.rules[0].http.paths
+          content:
+            path: /management.ManagementService
+          any: true
+      - equal:
+          path: spec.rules[0].http.paths[5].backend.service.name
+          value: nb-dashboard
+
+  - it: renders a server-only ingress when dashboard and server hosts differ
+    set:
+      global.server.ingress.host: api.example.com
+      global.dashboard.ingress.host: dashboard.example.com
+    asserts:
+      - equal:
+          path: metadata.name
+          value: nb-server
+      - equal:
+          path: spec.rules[0].host
+          value: api.example.com
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 1
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: nb-server

@@ -1,0 +1,76 @@
+suite: NetBird Combined Dashboard
+templates:
+  - templates/dashboard.yaml
+release:
+  name: nb
+  namespace: default
+tests:
+  - it: renders dashboard config for the combined server endpoint
+    documentSelector:
+      path: metadata.name
+      value: nb-dashboard-config
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: data.NETBIRD_MGMT_API_ENDPOINT
+          value: https://netbird.example.com
+      - equal:
+          path: data.NETBIRD_MGMT_GRPC_API_ENDPOINT
+          value: https://netbird.example.com
+      - equal:
+          path: data.AUTH_AUTHORITY
+          value: https://netbird.example.com/oauth2
+      - equal:
+          path: data.AUTH_CLIENT_ID
+          value: netbird-dashboard
+      - equal:
+          path: data.NETBIRD_TOKEN_SOURCE
+          value: idToken
+      - equal:
+          path: data.AUTH_REDIRECT_URI
+          value: /nb-auth
+      - equal:
+          path: data.AUTH_SILENT_REDIRECT_URI
+          value: /nb-silent-auth
+
+  - it: exposes the dashboard sidecar through a service targeting the server pod
+    documentSelector:
+      path: metadata.name
+      value: nb-dashboard
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 80
+      - equal:
+          path: spec.ports[0].targetPort
+          value: dashboard-http
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: server
+      - equal:
+          path: spec.selector["app.kubernetes.io/instance"]
+          value: nb
+
+  - it: renders a separate dashboard ingress when dashboard and server hosts differ
+    set:
+      global.server.ingress.host: api.example.com
+      global.dashboard.ingress.host: dashboard.example.com
+    documentSelector:
+      path: kind
+      value: Ingress
+    asserts:
+      - equal:
+          path: metadata.name
+          value: nb-dashboard
+      - equal:
+          path: spec.rules[0].host
+          value: dashboard.example.com
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: nb-dashboard

@@ -1,0 +1,106 @@
+suite: NetBird Dashboard Wrapper
+templates:
+  - templates/configmap.yaml
+  - templates/deployment.yaml
+  - templates/service.yaml
+  - templates/ingress.yaml
+release:
+  name: nb
+  namespace: default
+tests:
+  - it: derives dashboard config from parent-style global values
+    template: templates/configmap.yaml
+    set:
+      global.netbird.fqdn: netbird.example.test
+      global.netbird.management.ingress.host: mgmt.example.test
+      global.netbird.signal.ingress.host: signal.example.test
+      global.netbird.relay.ingress.host: relay.example.test
+      global.keycloak.fqdn: auth.example.test
+      global.keycloak.realm: birds
+      global.auth.audience: dashboard-audience
+      global.auth.clientId: dashboard-client
+      global.auth.supportedScopes: openid profile email
+      global.auth.tokenSource: idToken
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: nb-dashboard-config
+      - equal:
+          path: data.NETBIRD_MGMT_API_ENDPOINT
+          value: https://mgmt.example.test
+      - equal:
+          path: data.NETBIRD_MGMT_GRPC_API_ENDPOINT
+          value: https://mgmt.example.test
+      - equal:
+          path: data.NETBIRD_SIGNAL_ENDPOINT
+          value: https://signal.example.test
+      - equal:
+          path: data.NETBIRD_RELAY_ENDPOINT
+          value: rels://relay.example.test
+      - equal:
+          path: data.AUTH_AUTHORITY
+          value: https://auth.example.test/realms/birds
+      - equal:
+          path: data.AUTH_CLIENT_ID
+          value: dashboard-client
+      - equal:
+          path: data.NETBIRD_TOKEN_SOURCE
+          value: idToken
+      - equal:
+          path: data.AUTH_REDIRECT_URI
+          value: /nb-auth
+      - equal:
+          path: data.AUTH_SILENT_REDIRECT_URI
+          value: /nb-silent-auth
+
+  - it: renders the dashboard deployment through the shared library primitive
+    template: templates/deployment.yaml
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: nb-dashboard
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: dashboard
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: nb-dashboard-config
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            secretRef:
+              name: nb-dashboard-secrets
+
+  - it: renders a service targeting the dashboard pod
+    template: templates/service.yaml
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.ports[0].port
+          value: 80
+      - equal:
+          path: spec.ports[0].targetPort
+          value: http
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: dashboard
+      - equal:
+          path: spec.selector["app.kubernetes.io/instance"]
+          value: nb
+
+  - it: skips dashboard ingress when the parent chart owns unified ingress
+    template: templates/ingress.yaml
+    set:
+      global.netbird.fqdn: netbird.example.test
+      global.netbird.ingress.enabled: true
+      global.netbird.ingress.unified: true
+    asserts:
+      - hasDocuments:
+          count: 0

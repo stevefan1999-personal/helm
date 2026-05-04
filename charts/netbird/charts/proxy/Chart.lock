@@ -1,0 +1,6 @@
+dependencies:
+- name: netbird-proxy-lib
+  repository: file://../../../netbird-proxy-lib
+  version: 0.1.0
+digest: sha256:01d77cc2a26c1db4e04cb54537fefd8334f561ce06664f9db298e3c248bce9aa
+generated: "2026-05-04T14:15:32.09235777+08:00"

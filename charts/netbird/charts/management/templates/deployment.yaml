@@ -13,6 +13,9 @@ spec:
       {{- include "management.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
       labels:
         {{- include "management.selectorLabels" . | nindent 8 }}
     spec:
@@ -45,6 +48,7 @@ spec:
             - {{ .Values.global.netbird.management.logLevel | default "info" }}
             - --dns-domain
             - {{ .Values.global.netbird.management.dnsDomain | default "netbird.selfhosted" }}
+            - --disable-geolite-update={{ not (.Values.global.netbird.management.geoliteUpdate.enabled | default false) }}
             {{- if .Values.global.netbird.management.singleAccountModeDomain }}
             - --single-account-mode-domain
             - {{ .Values.global.netbird.management.singleAccountModeDomain | quote }}

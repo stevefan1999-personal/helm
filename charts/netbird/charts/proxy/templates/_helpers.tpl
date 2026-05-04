@@ -33,9 +33,6 @@ app.kubernetes.io/name: {{ include "proxy.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{/*
-Management address - points to the server service in the same release
-*/}}
 {{- define "proxy.managementAddress" -}}
-{{- printf "https://%s-management:443" .Release.Name -}}
+{{- coalesce .Values.management.address (printf "http://%s-%s:443" .Release.Name (.Values.management.serviceSuffix | default "management")) -}}
 {{- end -}}

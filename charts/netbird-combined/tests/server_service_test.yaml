@@ -1,0 +1,69 @@
+suite: NetBird Combined Server Service
+templates:
+  - templates/server.yaml
+release:
+  name: nb
+  namespace: default
+tests:
+  - it: registers the dashboard redirect URIs used by the dashboard sidecar
+    documentSelector:
+      path: metadata.name
+      value: nb-server-config
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'dashboardRedirectURIs: .*https://netbird.example.com/nb-auth.*https://netbird.example.com/nb-silent-auth'
+
+  - it: registers dashboard redirects against the dashboard host when hosts are split
+    set:
+      global.server.ingress.host: api.example.com
+      global.dashboard.ingress.host: dashboard.example.com
+    documentSelector:
+      path: metadata.name
+      value: nb-server-config
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'dashboardRedirectURIs: .*https://dashboard.example.com/nb-auth.*https://dashboard.example.com/nb-silent-auth'
+
+  - it: exposes server ports and selects the combined server pod
+    documentSelector:
+      path: metadata.name
+      value: nb-server
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 443
+      - equal:
+          path: spec.ports[0].targetPort
+          value: https
+      - equal:
+          path: spec.ports[1].targetPort
+          value: metrics
+      - equal:
+          path: spec.ports[2].protocol
+          value: UDP
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: server
+      - equal:
+          path: spec.selector["app.kubernetes.io/instance"]
+          value: nb
+
+  - it: keeps server endpoints published when the proxy sidecar is enabled
+    set:
+      proxy.enabled: true
+    documentSelector:
+      path: metadata.name
+      value: nb-server
+    asserts:
+      - equal:
+          path: spec.publishNotReadyAddresses
+          value: true

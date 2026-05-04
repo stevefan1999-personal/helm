@@ -1,0 +1,54 @@
+{{- include "netbird-combined.server.configmap" . }}
+{{- if and .Values.server.enabled .Values.global.cache.redisAddress }}
+---
+{{ include "netbird-combined.server.secret" . }}
+{{- end }}
+{{- if and .Values.server.enabled .Values.server.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "netbird-combined.server.fullname" . }}-data
+  labels:
+    {{- include "netbird-combined.server.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.server.persistence.storageClass }}
+  storageClassName: {{ .Values.server.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.server.persistence.size }}
+{{- end }}
+{{- if .Values.server.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "netbird-combined.server.fullname" . }}
+  labels:
+    {{- include "netbird-combined.server.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.server.service.type }}
+  {{- if .Values.proxy.enabled }}
+  publishNotReadyAddresses: true
+  {{- end }}
+  ports:
+    - port: {{ .Values.server.service.port }}
+      targetPort: https
+      protocol: TCP
+      name: https
+    - port: {{ .Values.server.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- range .Values.server.stunPorts }}
+    - port: {{ . }}
+      targetPort: stun-{{ . }}
+      protocol: UDP
+      name: stun-{{ . }}
+    {{- end }}
+  selector:
+    {{- include "netbird-combined.server.selectorLabels" . | nindent 4 }}
+{{- end }}

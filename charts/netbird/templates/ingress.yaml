@@ -37,6 +37,7 @@ spec:
                 port:
                   number: {{ .Values.management.service.port | default 443 }}
           # Management: native gRPC
+          {{- if not .Values.global.netbird.ingress.grpc.enabled }}
           - path: /management.ManagementService
             pathType: Prefix
             backend:
@@ -44,6 +45,7 @@ spec:
                 name: {{ .Release.Name }}-management
                 port:
                   number: {{ .Values.management.service.port | default 443 }}
+          {{- end }}
           # Management: WebSocket proxy
           - path: /ws-proxy/management
             pathType: Prefix
@@ -53,6 +55,7 @@ spec:
                 port:
                   number: {{ .Values.management.service.port | default 443 }}
           # Signal: native gRPC
+          {{- if not .Values.global.netbird.ingress.grpc.enabled }}
           - path: /signalexchange.SignalExchange
             pathType: Prefix
             backend:
@@ -60,6 +63,7 @@ spec:
                 name: {{ .Release.Name }}-signal
                 port:
                   number: {{ .Values.signal.service.port | default 80 }}
+          {{- end }}
           # Signal: WebSocket proxy
           - path: /ws-proxy/signal
             pathType: Prefix

@@ -1,0 +1,39 @@
+{{- $dashboard := .Values.dashboard -}}
+{{- $serverFqdn := include "netbird-combined.server.fqdn" . -}}
+{{- $config := dict
+  "managementEndpoint" (printf "https://%s" $serverFqdn)
+  "managementGrpcEndpoint" (printf "https://%s" $serverFqdn)
+-}}
+{{- $auth := dict
+  "authority" (include "netbird-combined.auth.issuer" .)
+  "audience" ($dashboard.auth.audience | default "netbird-dashboard")
+  "clientId" ($dashboard.auth.clientId | default "netbird-dashboard")
+  "clientSecret" ($dashboard.auth.clientSecret | default "")
+  "supportedScopes" ($dashboard.auth.supportedScopes | default "openid profile email")
+  "tokenSource" ($dashboard.auth.tokenSource | default "idToken")
+-}}
+{{- $secret := dict "enabled" ($dashboard.secret.enabled | default false) "name" (printf "%s-dashboard-secrets" .Release.Name) -}}
+{{- $dashboardFqdn := include "netbird-combined.dashboard.fqdn" . -}}
+{{- $tls := .Values.global.ingress.tls | default dict -}}
+{{- $ingress := dict
+  "enabled" (and .Values.global.ingress.enabled (ne $serverFqdn $dashboardFqdn))
+  "host" $dashboardFqdn
+  "path" (.Values.global.dashboard.ingress.path | default "/")
+  "className" .Values.global.ingress.className
+  "annotations" (.Values.global.ingress.annotations | default dict)
+  "tls" (dict "enabled" ($tls.enabled | default false) "secretName" ($tls.secretName | default ""))
+-}}
+{{- include "netbird-dashboard-lib.configmap" (dict "root" . "values" $dashboard "fullname" (printf "%s-dashboard" .Release.Name) "labels" (include "netbird-combined.dashboard.labels" .) "config" $config "auth" $auth) }}
+{{- if and $dashboard.enabled $secret.enabled }}
+---
+{{ include "netbird-dashboard-lib.secret" (dict "root" . "values" $dashboard "fullname" (printf "%s-dashboard" .Release.Name) "labels" (include "netbird-combined.dashboard.labels" .) "auth" $auth "secret" $secret) }}
+{{- end }}
+{{- if $dashboard.enabled }}
+---
+{{ include "netbird-dashboard-lib.service" (dict "root" . "values" $dashboard "fullname" (printf "%s-dashboard" .Release.Name) "labels" (include "netbird-combined.dashboard.labels" .) "selectorLabels" (include "netbird-combined.server.selectorLabels" .) "portName" "dashboard-http") }}
+{{- end }}
+{{- if and $dashboard.enabled $ingress.enabled }}
+---
+{{/* Dashboard ingress is only created when dashboard and server use different hosts. */}}
+{{ include "netbird-dashboard-lib.ingress" (dict "root" . "values" $dashboard "fullname" (printf "%s-dashboard" .Release.Name) "labels" (include "netbird-combined.dashboard.labels" .) "ingress" $ingress) }}
+{{- end }}

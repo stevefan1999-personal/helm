@@ -1,0 +1,9 @@
+dependencies:
+- name: netbird-dashboard-lib
+  repository: file://../netbird-dashboard-lib
+  version: 0.1.0
+- name: netbird-proxy-lib
+  repository: file://../netbird-proxy-lib
+  version: 0.1.0
+digest: sha256:a8529f4e653e312c18deded6fcdeb503472c9de7ee2bade81a13325b49811477
+generated: "2026-05-04T14:35:49.242966197+08:00"

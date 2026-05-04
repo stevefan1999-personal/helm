@@ -1,0 +1,161 @@
+{{- if .Values.server.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "netbird-combined.server.fullname" . }}
+  labels:
+    {{- include "netbird-combined.server.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.server.replicas }}
+  {{- if .Values.server.strategy }}
+  strategy:
+    {{- toYaml .Values.server.strategy | nindent 4 }}
+  {{- else if .Values.server.stunPorts }}
+  strategy:
+    type: Recreate
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "netbird-combined.server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include "netbird-combined.server.configmap" . | sha256sum }}
+        checksum/secrets: {{ include "netbird-combined.server.secret" . | sha256sum }}
+        {{- if .Values.dashboard.enabled }}
+        checksum/dashboard-config: {{ include "netbird-combined.dashboard.checksumInput" . | sha256sum }}
+        {{- end }}
+      labels:
+        {{- include "netbird-combined.server.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "netbird-proxy-lib.podServiceAccount" (dict "root" . "values" .Values.proxy "fullname" (printf "%s-proxy" .Release.Name)) | nindent 6 }}
+      {{- with .Values.server.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.server.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.server.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.server.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if include "netbird-combined.postgresql.enabled" . }}
+      initContainers:
+        - name: wait-for-db
+          image: "busybox:1.36"
+          command: ["sh", "-c", {{ include "netbird-combined.server.wait-for-db" . | quote }}]
+      {{- end }}
+      containers:
+        - name: netbird-server
+          image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
+          imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+          args:
+            - --config
+            - /etc/netbird/config.yaml
+          env:
+            - name: NB_SETUP_PAT_ENABLED
+              value: {{ .Values.global.auth.setupPAT.enabled | default false | quote }}
+            - name: NB_API_RATE_LIMITING_ENABLED
+              value: {{ .Values.global.apiRateLimiting.enabled | default false | quote }}
+            - name: NB_API_RATE_LIMITING_RPM
+              value: {{ .Values.global.apiRateLimiting.requestsPerMinute | default 6 | quote }}
+            - name: NB_API_RATE_LIMITING_BURST
+              value: {{ .Values.global.apiRateLimiting.burst | default 500 | quote }}
+            {{- if .Values.global.cache.redisAddress }}
+            - name: NB_CACHE_REDIS_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "netbird-combined.server.fullname" . }}-secrets
+                  key: NB_CACHE_REDIS_ADDRESS
+            {{- end }}
+          ports:
+            - name: https
+              containerPort: {{ .Values.server.listenPort }}
+              protocol: TCP
+            - name: health
+              containerPort: {{ .Values.server.healthPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.server.metricsPort }}
+              protocol: TCP
+            {{- range .Values.server.stunPorts }}
+            - name: stun-{{ . }}
+              containerPort: {{ . }}
+              protocol: UDP
+              hostPort: {{ . }}
+            {{- end }}
+          livenessProbe:
+            tcpSocket:
+              port: https
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          readinessProbe:
+            tcpSocket:
+              port: https
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+          {{- with .Values.server.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/netbird/config.yaml
+              subPath: config.yaml
+            - name: data
+              mountPath: /var/lib/netbird
+        {{- if .Values.dashboard.enabled }}
+        {{- include "netbird-dashboard-lib.container" (dict
+          "root" .
+          "values" .Values.dashboard
+          "fullname" (printf "%s-dashboard" .Release.Name)
+          "configMapName" (printf "%s-dashboard-config" .Release.Name)
+          "secret" (dict "enabled" (.Values.dashboard.secret.enabled | default false) "name" (printf "%s-dashboard-secrets" .Release.Name))
+          "portName" "dashboard-http"
+        ) | nindent 8 }}
+        {{- end }}
+        {{- if .Values.proxy.enabled }}
+        {{- include "netbird-proxy-lib.container" (dict
+          "root" .
+          "values" .Values.proxy
+          "fullname" (printf "%s-proxy" .Release.Name)
+          "managementAddress" (printf "http://127.0.0.1:%v" (.Values.server.service.port | default 443))
+          "proxySecretName" (printf "%s-proxy-proxy-secrets" .Release.Name)
+          "crowdsecSecretName" (printf "%s-proxy-crowdsec-secrets" .Release.Name)
+          "pvcName" (printf "%s-proxy-certs" .Release.Name)
+          "portNames" (dict "https" "proxy-https" "health" "proxy-health" "acme" "proxy-acme")
+          "volumeNames" (dict "certs" "proxy-certs" "tlsCert" "proxy-tls-cert")
+        ) | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "netbird-combined.server.fullname" . }}-config
+        - name: data
+          {{- if .Values.server.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "netbird-combined.server.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if .Values.proxy.enabled }}
+        {{- include "netbird-proxy-lib.volumes" (dict
+          "root" .
+          "values" .Values.proxy
+          "fullname" (printf "%s-proxy" .Release.Name)
+          "pvcName" (printf "%s-proxy-certs" .Release.Name)
+          "volumeNames" (dict "certs" "proxy-certs" "tlsCert" "proxy-tls-cert")
+        ) | nindent 8 }}
+        {{- end }}
+{{- end }}

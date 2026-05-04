@@ -1,0 +1,45 @@
+{{- $proxy := .Values.proxy -}}
+{{- $fullname := printf "%s-proxy" .Release.Name -}}
+{{- $labels := include "netbird-combined.proxy.labels" . -}}
+{{- $proxySecretName := printf "%s-proxy-proxy-secrets" .Release.Name -}}
+{{- $crowdsecSecretName := printf "%s-proxy-crowdsec-secrets" .Release.Name -}}
+{{- $pvcName := printf "%s-proxy-certs" .Release.Name -}}
+{{- $rbac := include "netbird-proxy-lib.acmeLeaseRBAC" (dict "root" . "values" $proxy "fullname" $fullname "labels" $labels) -}}
+{{- if $rbac }}
+{{ $rbac }}
+{{- end }}
+{{- if and $proxy.enabled (not $proxy.existingSecret) }}
+{{- if $rbac }}
+---
+{{- end }}
+{{- include "netbird-proxy-lib.secret" (dict "root" . "values" $proxy "fullname" $fullname "labels" $labels "proxySecretName" $proxySecretName "createPlaceholderSecret" true) }}
+{{- end }}
+{{- if and $proxy.enabled $proxy.crowdsec.apiKey (not $proxy.crowdsec.existingSecret) }}
+---
+{{ include "netbird-proxy-lib.crowdsecSecret" (dict "root" . "values" $proxy "fullname" $fullname "labels" $labels "crowdsecSecretName" $crowdsecSecretName) }}
+{{- end }}
+{{- if and $proxy.enabled $proxy.persistence.enabled }}
+---
+{{ include "netbird-proxy-lib.pvc" (dict "root" . "values" $proxy "fullname" $fullname "labels" $labels "pvcName" $pvcName) }}
+{{- end }}
+{{- if $proxy.enabled }}
+---
+{{ include "netbird-proxy-lib.service" (dict "root" . "values" $proxy "fullname" $fullname "labels" $labels "selectorLabels" (include "netbird-combined.server.selectorLabels" .) "portNames" (dict "https" "proxy-https" "health" "proxy-health" "acme" "proxy-acme")) }}
+{{- end }}
+{{- if and $proxy.enabled $proxy.ingress.enabled }}
+---
+{{ include "netbird-proxy-lib.ingress" (dict "root" . "values" $proxy "fullname" $fullname "labels" $labels "ingressClassName" (coalesce $proxy.ingress.className .Values.global.ingress.className)) }}
+{{- end }}
+{{- if and $proxy.enabled (not $proxy.token) (not $proxy.existingSecret) }}
+---
+{{- $tc := dict
+  "deployment" (include "netbird-combined.server.fullname" .)
+  "appName" (include "netbird-combined.server.name" .)
+  "container" "netbird-server"
+  "command" "/usr/local/bin/netbird-server"
+  "configPath" "/etc/netbird/config.yaml"
+  "restartDeployment" (include "netbird-combined.server.fullname" .)
+  "waitForAvailable" false
+-}}
+{{ include "netbird-proxy-lib.tokenJob" (dict "root" . "values" $proxy "fullname" $fullname "labels" $labels "selectorLabels" (include "netbird-combined.server.selectorLabels" .) "proxySecretName" $proxySecretName "tokenCreator" $tc) }}
+{{- end }}

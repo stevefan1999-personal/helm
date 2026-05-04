@@ -1,0 +1,6 @@
+dependencies:
+- name: netbird-dashboard-lib
+  repository: file://../../../netbird-dashboard-lib
+  version: 0.1.0
+digest: sha256:d3ff2c1c538b51965c1b406a703aebf892006c4b60eb0e1f0e5f26ccaf7e16ce
+generated: "2026-05-04T14:15:31.847419228+08:00"

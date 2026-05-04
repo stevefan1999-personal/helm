@@ -1,23 +1,22 @@
-# Dashboard ConfigMap for non-sensitive configuration
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "dashboard.fullname" . }}-config
-  labels:
-    {{- include "dashboard.labels" . | nindent 4 }}
-data:
-  # Dashboard-specific configuration
-  NETBIRD_MGMT_API_ENDPOINT: {{ printf "https://%s" (include "netbird.management.fqdn" .) }}
-  NETBIRD_MGMT_GRPC_API_ENDPOINT: {{ printf "https://%s" (include "netbird.management.fqdn" .) }}
-  NETBIRD_SIGNAL_ENDPOINT: {{ printf "https://%s" (include "netbird.signal.fqdn" .) }}
-  NETBIRD_RELAY_ENDPOINT: {{ printf "rels://%s" (include "netbird.relay.fqdn" .) }}
-  AUTH_AUDIENCE: {{ $.Values.global.auth.audience | quote }}
-  AUTH_CLIENT_ID: {{ $.Values.global.auth.clientId | quote }}
-  AUTH_AUTHORITY: {{ include "netbird.auth.authority" . | quote }}
-  USE_AUTH0: "false"
-  AUTH_SUPPORTED_SCOPES: {{ $.Values.global.auth.supportedScopes | quote }}
-  NETBIRD_TOKEN_SOURCE: {{ $.Values.global.auth.tokenSource | quote }}
-  AUTH_REDIRECT_URI: ""
-  AUTH_SILENT_REDIRECT_URI: ""
-  # Skip certbot - TLS is handled by ingress/cert-manager
-  LETSENCRYPT_DOMAIN: "none"
+{{- $values := .Values | toJson | fromJson -}}
+{{- $managementHost := coalesce .Values.config.managementEndpoint (dig "global" "netbird" "management" "ingress" "host" "" $values) (dig "global" "netbird" "fqdn" "" $values) -}}
+{{- $signalHost := coalesce (dig "global" "netbird" "signal" "ingress" "host" "" $values) (dig "global" "netbird" "fqdn" "" $values) -}}
+{{- $relayHost := coalesce (dig "global" "netbird" "relay" "ingress" "host" "" $values) (dig "global" "netbird" "fqdn" "" $values) -}}
+{{- $keycloakFqdn := dig "global" "keycloak" "fqdn" "keycloak.example.com" $values -}}
+{{- $keycloakRealm := dig "global" "keycloak" "realm" "netbird" $values -}}
+{{- $authority := coalesce .Values.auth.authority (dig "global" "auth" "authority" "" $values) (printf "https://%s/realms/%s" $keycloakFqdn $keycloakRealm) -}}
+{{- $config := dict
+  "managementEndpoint" (coalesce .Values.config.managementEndpoint (printf "https://%s" $managementHost))
+  "managementGrpcEndpoint" (coalesce .Values.config.managementGrpcEndpoint (printf "https://%s" $managementHost))
+  "signalEndpoint" (coalesce .Values.config.signalEndpoint (printf "https://%s" $signalHost))
+  "relayEndpoint" (coalesce .Values.config.relayEndpoint (printf "rels://%s" $relayHost))
+-}}
+{{- $auth := dict
+  "authority" $authority
+  "audience" (coalesce .Values.auth.audience (dig "global" "auth" "audience" "netbird-client" $values))
+  "clientId" (coalesce .Values.auth.clientId (dig "global" "auth" "clientId" "netbird-client" $values))
+  "clientSecret" (coalesce .Values.auth.clientSecret (dig "global" "auth" "clientSecret" "" $values))
+  "supportedScopes" (coalesce .Values.auth.supportedScopes (dig "global" "auth" "supportedScopes" "openid" $values))
+  "tokenSource" (coalesce .Values.auth.tokenSource (dig "global" "auth" "tokenSource" "accessToken" $values))
+-}}
+{{- include "netbird-dashboard-lib.configmap" (dict "root" . "values" .Values "fullname" (include "dashboard.fullname" .) "labels" (include "dashboard.labels" .) "config" $config "auth" $auth) }}

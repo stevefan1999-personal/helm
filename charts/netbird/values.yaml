@@ -29,6 +29,14 @@ global:
         nginx.ingress.kubernetes.io/server-snippets: |
           grpc_read_timeout 86400s;
           grpc_send_timeout 86400s;
+      # Create a separate ingress for native gRPC paths. This is required for
+      # nginx when dashboard/API HTTP routes share the same host as gRPC routes.
+      grpc:
+        enabled: false
+        annotations:
+          nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+          nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+          nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
       # TLS configuration for ingress.
       tls:
         # Enables or disables TLS for ingress.
@@ -56,6 +64,22 @@ global:
       # Whether to create a default allow-all policy for new accounts.
       defaultPolicy:
         enabled: true
+      # Whether to auto-update GeoLite2 geolocation databases.
+      geoliteUpdate:
+        enabled: false
+      # Enables setup-time Personal Access Token issuance for embedded/setup flows.
+      # Requires a NetBird management image built after v0.70.4.
+      setupPAT:
+        enabled: false
+      # API token rate limiting. Disabled unless explicitly enabled.
+      apiRateLimiting:
+        enabled: false
+        requestsPerMinute: 6
+        burst: 500
+      # Shared cache backend for IDP/session/one-time token state.
+      cache:
+        # Redis URL, for example redis://:password@redis:6379/0.
+        redisAddress: ""
     # Relay service specific configurations.
     relay:
       enabled: true
@@ -73,6 +97,12 @@ global:
     signal:
       # Log level for the signal server (debug, info, warn, error).
       logLevel: "info"
+      # Protocol advertised to clients in management.json ("http" or "https").
+      # Use "http" for in-cluster/plain HTTP signal access; use "https" behind TLS ingress.
+      proto: "https"
+      # Optional full host:port advertised to clients in management.json.
+      # When empty, defaults to "<global.netbird.signal.ingress.host>:443".
+      uri: ""
       # Ingress configuration for the Signal server.
       ingress:
         # Hostname for the Signal server.
@@ -99,6 +129,19 @@ global:
     supportedScopes: "openid"
     # Source of the authentication token.
     tokenSource: "accessToken"
+    # JWT key set URL. If empty, management derives it from the OIDC discovery endpoint.
+    jwtCerts: ""
+    # JWT claim used as the NetBird user ID.
+    userIDClaim: "sub"
+    # Optional extra accepted audience for management API tokens.
+    extraAudience: ""
+    # Optional auth callback URL used by reverse proxy SSO flows.
+    callbackURL: ""
+    # Optional explicit OIDC discovery endpoint.
+    oidcConfigEndpoint: ""
+    # Whether to evaluate cache headers for signing key rotation.
+    idpSignKeyRefresh:
+      enabled: false
     # Device Authorization Flow configurations.
     deviceAuthorizationFlow:
       # Provider for the device authorization flow (e.g., "auth0").
@@ -133,6 +176,12 @@ global:
       scope: ""
       # Redirect URLs for the PKCE flow.
       redirectURLs: []
+      # Whether to use the ID token instead of the access token for PKCE auth.
+      useIDToken: false
+      # Disable prompt=login/max_age behavior in the PKCE login URL.
+      disablePromptLogin: false
+      # PKCE login flag: 0=prompt=login, 1=max_age=0, 2=no extra flag.
+      loginFlag: 0
     # STUN (Session Traversal Utilities for NAT) server configurations.
     stuns:
       # Enables or disables STUN servers.
@@ -166,6 +215,10 @@ global:
       # List of trusted peers.
       trustedPeers:
       - "0.0.0.0/0"
+      # Days to retain reverse-proxy access logs. 0 defaults to 7; negative disables cleanup.
+      accessLogRetentionDays: 0
+      # Cleanup interval in hours for reverse-proxy access logs. 0 defaults to 24.
+      accessLogCleanupIntervalHours: 0
     # Identity Provider (IdP) Manager configurations.
     idpManager:
       # Type of IdP manager (e.g., "keycloak", "auth0", "azure", "zitadel").

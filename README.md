@@ -24,7 +24,8 @@ The following charts are available in this repository:
 
 | Chart | Version | App Version | Description |
 | :---- | :------ | :---------- | :---------- |
-| [netbird](#netbird-chart) | 0.1.0 | 0.50.1 | A Helm chart for deploying NetBird, the open-source VPN that makes it easy to create secure private networks. |
+| [netbird](#netbird-chart) | 0.4.0 | 0.70.4 | A Helm chart for deploying NetBird, the open-source VPN that makes it easy to create secure private networks. |
+| [netbird-combined](charts/netbird-combined) | 0.3.0 | 0.70.4 | A single-pod NetBird deployment with management, signal, relay, STUN, dashboard, and optional proxy containers. |
 
 ---
 

@@ -9,6 +9,10 @@ data:
   # Store configuration
   NETBIRD_STORE_ENGINE: {{ include "netbird.store.engine" . | quote }}
   NB_ACTIVITY_EVENT_STORE_ENGINE: {{ include "netbird.store.engine" . | quote }}
+  NB_SETUP_PAT_ENABLED: {{ $.Values.global.netbird.management.setupPAT.enabled | default false | quote }}
+  NB_API_RATE_LIMITING_ENABLED: {{ $.Values.global.netbird.management.apiRateLimiting.enabled | default false | quote }}
+  NB_API_RATE_LIMITING_RPM: {{ $.Values.global.netbird.management.apiRateLimiting.requestsPerMinute | default 6 | quote }}
+  NB_API_RATE_LIMITING_BURST: {{ $.Values.global.netbird.management.apiRateLimiting.burst | default 500 | quote }}
   management.json: |-
     {
 {{- if $.Values.global.auth.stuns.enabled }}
@@ -28,13 +32,15 @@ data:
             "Secret": "{{ $.Values.global.netbird.relay.secret }}"
         },
         "Signal": {
-            "Proto": "wss",
-            "URI": "{{ $.Values.global.netbird.signal.ingress.host }}:443"
+            "Proto": "{{ $.Values.global.netbird.signal.proto | default "https" }}",
+            "URI": "{{ $.Values.global.netbird.signal.uri | default (printf "%s:443" $.Values.global.netbird.signal.ingress.host) }}"
         },
         "ReverseProxy": {
             "TrustedHTTPProxies": {{ $.Values.global.auth.reverseProxy.trustedHTTPProxies | toJson }},
             "TrustedHTTPProxiesCount": {{ $.Values.global.auth.reverseProxy.trustedHTTPProxiesCount }},
-            "TrustedPeers": {{ $.Values.global.auth.reverseProxy.trustedPeers | toJson }}
+            "TrustedPeers": {{ $.Values.global.auth.reverseProxy.trustedPeers | toJson }},
+            "AccessLogRetentionDays": {{ $.Values.global.auth.reverseProxy.accessLogRetentionDays | default 0 }},
+            "AccessLogCleanupIntervalHours": {{ $.Values.global.auth.reverseProxy.accessLogCleanupIntervalHours | default 0 }}
         },
         "DisableDefaultPolicy": {{ not $.Values.global.netbird.management.defaultPolicy.enabled }},
         "DataStoreEncryptionKey": "{{ $.Values.global.netbird.management.dataStoreEncryptionKey | default (randBytes 32) }}",
@@ -45,6 +51,11 @@ data:
             "Address": "0.0.0.0:{{ .Values.service.port }}",
             "AuthIssuer": "{{ include "netbird.auth.authority" . }}",
             "AuthAudience": "{{ $.Values.global.auth.audience }}",
+            "ExtraAuthAudience": "{{ $.Values.global.auth.extraAudience }}",
+            "AuthKeysLocation": "{{ $.Values.global.auth.jwtCerts }}",
+            "AuthUserIDClaim": "{{ $.Values.global.auth.userIDClaim | default "sub" }}",
+            "AuthCallbackURL": "{{ $.Values.global.auth.callbackURL }}",
+            "IdpSignKeyRefreshEnabled": {{ $.Values.global.auth.idpSignKeyRefresh.enabled | default false }},
             "OIDCConfigEndpoint":"{{ include "netbird.auth.oidcConfigEndpoint" . }}"
         },
         "PKCEAuthorizationFlow": {
@@ -55,7 +66,10 @@ data:
                 "TokenEndpoint": "{{ include "netbird.auth.pkce.tokenEndpoint" . }}",
                 "AuthorizationEndpoint": "{{ include "netbird.auth.pkce.authorizationEndpoint" . }}",
                 "Scope": "{{ include "netbird.auth.pkce.scope" . }}",
-                "RedirectURLs": {{ include "netbird.redirectURLs" . }}
+                "RedirectURLs": {{ include "netbird.redirectURLs" . }},
+                "UseIDToken": {{ $.Values.global.auth.pkce.useIDToken | default false }},
+                "DisablePromptLogin": {{ $.Values.global.auth.pkce.disablePromptLogin | default false }},
+                "LoginFlag": {{ $.Values.global.auth.pkce.loginFlag | default 0 }}
             }
         },
         "DeviceAuthorizationFlow": {

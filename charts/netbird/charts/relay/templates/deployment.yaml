@@ -1,4 +1,5 @@
 {{- if .Values.enabled }}
+{{- $trustedCA := .Values.trustedCA | default dict }}
 # Relay Deployment
 apiVersion: apps/v1
 kind: Deployment
@@ -23,6 +24,13 @@ spec:
           env:
             - name: TZ
               value: {{ $.Values.global.timezone | quote }}
+            {{- if $trustedCA.secretName }}
+            - name: SSL_CERT_FILE
+              value: {{ printf "/etc/netbird/trusted-ca/%s" ($trustedCA.key | default "tls.crt") | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           envFrom:
             # Non-sensitive configuration from ConfigMap
             - configMapRef:
@@ -38,16 +46,26 @@ spec:
               containerPort: 9000
               protocol: TCP
           livenessProbe:
+            {{- if eq (.Values.probe.type | default "tcp") "tcp" }}
+            tcpSocket:
+              port: relay
+            {{- else }}
             httpGet:
-              path: /healthcheck
+              path: {{ .Values.healthPath | default "/health" | quote }}
               port: health
+            {{- end }}
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 2
           readinessProbe:
+            {{- if eq (.Values.probe.type | default "tcp") "tcp" }}
+            tcpSocket:
+              port: relay
+            {{- else }}
             httpGet:
-              path: /healthcheck
+              path: {{ .Values.healthPath | default "/health" | quote }}
               port: health
+            {{- end }}
             initialDelaySeconds: 3
             periodSeconds: 5
             timeoutSeconds: 2
@@ -55,6 +73,33 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- if or $trustedCA.secretName .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- if $trustedCA.secretName }}
+            - name: trusted-ca
+              mountPath: /etc/netbird/trusted-ca
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- else }}
           volumeMounts: []
+          {{- end }}
+      {{- if or $trustedCA.secretName .Values.extraVolumes }}
+      volumes:
+        {{- if $trustedCA.secretName }}
+        - name: trusted-ca
+          secret:
+            secretName: {{ $trustedCA.secretName | quote }}
+            items:
+              - key: {{ $trustedCA.key | default "tls.crt" | quote }}
+                path: {{ $trustedCA.key | default "tls.crt" | quote }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- else }}
       volumes: []
+      {{- end }}
 {{- end }}

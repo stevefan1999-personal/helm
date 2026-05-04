@@ -112,23 +112,23 @@ Coalesce helper for Device Authorization Flow related auth fields
 Coalesce helper for IdpManager related auth fields
 */}}
 {{- define "netbird.auth.idpManager.issuer" -}}
-{{- include "netbird.auth.coalesce" (dict "AuthKind" "idpManager.clientConfig" "Key" "issuer" "Default" (include "netbird.auth.authority" .) "Context" $) -}}
+{{- coalesce $.Values.global.auth.idpManager.clientConfig.issuer (include "netbird.auth.authority" .) -}}
 {{- end -}}
 {{- define "netbird.auth.idpManager.tokenEndpoint" -}}
-{{- include "netbird.auth.coalesce" (dict "AuthKind" "idpManager.clientConfig" "Key" "tokenEndpoint" "Default" (include "netbird.keycloak.tokenUrl" .) "Context" $) -}}
+{{- coalesce $.Values.global.auth.idpManager.clientConfig.tokenEndpoint (include "netbird.keycloak.tokenUrl" .) -}}
 {{- end -}}
 {{- define "netbird.auth.idpManager.clientID" -}}
-{{- include "netbird.auth.coalesce" (dict "AuthKind" "idpManager.clientConfig" "Key" "clientID" "Default" $.Values.global.auth.clientId "Context" $) -}}
+{{- coalesce $.Values.global.auth.idpManager.clientConfig.clientID $.Values.global.auth.clientId -}}
 {{- end -}}
 {{- define "netbird.auth.idpManager.clientSecret" -}}
-{{- include "netbird.auth.coalesce" (dict "AuthKind" "idpManager.clientConfig" "Key" "clientSecret" "Default" $.Values.global.auth.clientSecret "Context" $) -}}
+{{- coalesce $.Values.global.auth.idpManager.clientConfig.clientSecret $.Values.global.auth.clientSecret -}}
 {{- end -}}
 
 {{/*
 Create the OIDC config endpoint URL
 */}}
 {{- define "netbird.auth.oidcConfigEndpoint" -}}
-{{- printf "%s/.well-known/openid-configuration" (include "netbird.auth.authority" .) -}}
+{{- coalesce $.Values.global.auth.oidcConfigEndpoint (printf "%s/.well-known/openid-configuration" (trimSuffix "/" (include "netbird.auth.authority" .))) -}}
 {{- end -}}
 
 {{/*
